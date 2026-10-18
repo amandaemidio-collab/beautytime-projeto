@@ -15,9 +15,9 @@
 
 ## 3. Fluxos de interface em Reflex
 
-- [ ] 3.1 Implementar cadastro e login de cliente integrados às APIs e tratamento dos erros de autenticação/cadastro; verificar os fluxos em execução, a ausência de dados sensíveis na sessão e a navegação para a página simples de boas-vindas após login.
-- [ ] 3.2 Implementar cadastro de administrador com dados da empresa e login correspondente, apresentando erros de e-mail ou slug indisponível; verificar a criação da empresa, o tratamento de falha sem sucesso parcial na interface e a navegação para a página simples de boas-vindas após login.
-- [ ] 3.3 Implementar a página pública da empresa usando o slug e a consulta sem autenticação; verificar apresentação dos dados públicos e estado de empresa não encontrada.
+- [x] 3.1 Implementar cadastro e login de cliente integrados às APIs e tratamento dos erros de autenticação/cadastro; verificar os fluxos em execução, a ausência de dados sensíveis na sessão e a navegação para a página simples de boas-vindas após login.
+- [x] 3.2 Implementar cadastro de administrador com dados da empresa e login correspondente, apresentando erros de e-mail ou slug indisponível; verificar a criação da empresa, o tratamento de falha sem sucesso parcial na interface e a navegação para a página simples de boas-vindas após login.
+- [x] 3.3 Implementar a página pública da empresa usando o slug e a consulta sem autenticação; verificar apresentação dos dados públicos e estado de empresa não encontrada.
 
 ## 4. Verificação integrada
 
