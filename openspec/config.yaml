@@ -1,0 +1,30 @@
+schema: spec-driven
+
+context: |
+  Project: BeautyTime — serviço web de agendamento online para salões de beleza e barbearias.
+  Domain: Plataforma multiempresa. Cada empresa cadastra profissionais, serviços e horários de atendimento e divulga um link público. Clientes fazem login pelo link (principalmente no celular) e agendam escolhendo serviço, profissional e horário.
+  Tech stack: Backend em Xano (XanoScript), sincronizado pelo Xano CLI. Frontend em Reflex. Git e GitHub.
+  Architecture: O backend Xano concentra banco de dados, autenticação, regras de negócio e API. O frontend Reflex apenas exibe dados e consome a API do Xano. Não introduzir outra tecnologia de frontend sem mudança explícita da decisão arquitetural.
+  Security: Autorização sempre no backend. Isolamento total entre empresas. Clientes acessam apenas os próprios agendamentos; administradores apenas os dados da própria empresa. Conflitos de horário são verificados no backend ao criar o agendamento.
+  Development: Desenvolvimento incremental com OpenSpec. Consultar a documentação do XanoScript pelo Xano Developer MCP em vez de presumir a sintaxe.
+  Language: Escrever a documentação e os artefatos OpenSpec em português brasileiro.
+
+rules:
+  proposal:
+    - Descrever claramente o problema, o objetivo e o escopo.
+    - Explicitar o que está fora do escopo.
+  specs:
+    - Escrever requisitos verificáveis com cenários.
+    - Incluir cenários de erro relevantes, como conflito de horário e acesso a dados de outra empresa.
+  tasks:
+    - Separar as tarefas de backend (Xano) e de frontend (Reflex).
+    - Dividir em tarefas pequenas e verificáveis.
+
+operations:
+  apply:
+    guidance:
+      - Validar o XanoScript com o Xano Developer MCP antes de concluir as tarefas.
+      - Rodar xano workspace push com --dry-run e pedir confirmação antes do push real.
+  archive:
+    guidance:
+      - Confirmar que a implementação corresponde às especificações.
