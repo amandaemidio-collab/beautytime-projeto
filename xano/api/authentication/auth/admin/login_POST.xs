@@ -46,7 +46,12 @@ query "auth/admin/login" verb=POST {
     } as $event_log
   }
 
-  response = {authToken: $authToken, user_id: $user.id, user_type: $user.role}
+  response = {
+    authToken: $authToken
+    user_id  : $user.id
+    user_type: $user.role
+  }
+
   tags = ["xano:quick-start"]
   guid = "AjlMrBAosV1Oc8JntHasNS8V0iU"
 }

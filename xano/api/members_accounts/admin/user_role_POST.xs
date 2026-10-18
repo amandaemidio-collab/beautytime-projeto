@@ -16,7 +16,7 @@ query "admin/user_role" verb=POST {
       error_type = "accessdenied"
       error = "Account roles cannot be changed through this endpoint."
     }
-
+  
     // Retrieve the authenticated user's details
     db.get user {
       field_name = "id"

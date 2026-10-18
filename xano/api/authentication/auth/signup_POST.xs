@@ -24,11 +24,11 @@ query "auth/signup" verb=POST {
     db.add user {
       enforce_hidden_fields = false
       data = {
-        name   : $input.name
-        email  : $input.email
-        phone  : $input.phone
+        name    : $input.name
+        email   : $input.email
+        phone   : $input.phone
         password: $input.password
-        role   : "client"
+        role    : "client"
       }
     } as $user
   
@@ -54,6 +54,7 @@ query "auth/signup" verb=POST {
     user_id  : $user.id
     user_type: $user.role
   }
+
   tags = ["xano:quick-start"]
   guid = "rUG4j5xdPgFjFGPIKXqnl6q3lKo"
 }

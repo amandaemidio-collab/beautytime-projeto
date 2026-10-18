@@ -15,7 +15,8 @@ query "auth/admin/signup" verb=POST {
 
   stack {
     var $identifier_matches {
-      value = "/^[a-z0-9]+(-[a-z0-9]+)*$/"|regex_matches:$input.public_identifier
+      value = "/^[a-z0-9]+(-[a-z0-9]+)*$/"
+        |regex_matches:$input.public_identifier
     }
   
     precondition ((($input.public_identifier|strlen) >= 3) && (($input.public_identifier|strlen) <= 40) && $identifier_matches) {
@@ -50,10 +51,10 @@ query "auth/admin/signup" verb=POST {
         db.add account {
           enforce_hidden_fields = false
           data = {
-            name              : $input.company_name
+            name             : $input.company_name
             public_identifier: $input.public_identifier
-            description       : $input.description
-            location          : $input.location
+            description      : $input.description
+            location         : $input.location
           }
         } as $company
       
@@ -74,7 +75,10 @@ query "auth/admin/signup" verb=POST {
             user_id   : $user.id
             account_id: $company.id
             action    : "signup_admin"
-            metadata  : {role: "admin", public_identifier: $company.public_identifier}
+            metadata  : {
+            role             : "admin"
+            public_identifier: $company.public_identifier
+          }
           }
         } as $event_log
       }
@@ -104,11 +108,14 @@ query "auth/admin/signup" verb=POST {
     authToken: $authToken
     user_id  : $created_user.id
     user_type: $created_user.role
-    company  : {
-      name              : $created_company.name
-      public_identifier: $created_company.public_identifier
-    }
+    company  : ```
+      {
+        name              : $created_company.name
+        public_identifier: $created_company.public_identifier
+      }
+      ```
   }
+
   tags = ["xano:quick-start"]
   guid = "jGUb9ZxeXUpx7x-gJ3-rW47y7lY"
 }

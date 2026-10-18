@@ -20,8 +20,9 @@ query "company/public" verb=GET {
   }
 
   response = {
-    name              : $company.name
+    name             : $company.name
     public_identifier: $company.public_identifier
   }
+
   guid = "Q8VuMVUIekYv54eFKiHcdLuc9fw"
 }

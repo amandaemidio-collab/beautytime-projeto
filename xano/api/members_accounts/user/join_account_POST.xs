@@ -13,7 +13,7 @@ query "user/join_account" verb=POST {
       error_type = "accessdenied"
       error = "Company membership cannot be changed through this endpoint."
     }
-
+  
     // Retrieve the authenticated user's record.
     db.get user {
       field_name = "id"

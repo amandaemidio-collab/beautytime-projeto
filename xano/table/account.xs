@@ -10,6 +10,7 @@ table account {
   
     // The company's public name and booking-link identifier.
     text name filters=trim
+  
     text public_identifier filters=trim
   
     // A brief description of the company.
@@ -20,9 +21,11 @@ table account {
 
   index = [
     {type: "primary", field: [{name: "id"}]}
-    {type: "gin", field: [{name: "xdo", op: "jsonb_path_op"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
-    {type: "btree|unique", field: [{name: "public_identifier", op: "asc"}]}
+    {
+      type : "btree|unique"
+      field: [{name: "public_identifier", op: "asc"}]
+    }
   ]
 
   tags = ["xano:quick-start"]

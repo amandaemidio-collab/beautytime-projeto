@@ -13,7 +13,7 @@ query "account/details" verb=GET {
       error_type = "accessdenied"
       error = "This public account-details endpoint is no longer available."
     }
-
+  
     // Retrieve account details based on account ID
     db.get account {
       field_name = "id"

@@ -10,10 +10,6 @@ table MOCK_DATA {
     text ip_address?
   }
 
-  index = [
-    {type: "primary", field: [{name: "id"}]}
-    {type: "gin", field: [{name: "xdo", op: "jsonb_path_op"}]}
-  ]
-
+  index = [{type: "primary", field: [{name: "id"}]}]
   guid = "P9bGsy9_R7c7WIcoZIj6PGlc870"
 }
