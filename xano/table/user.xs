@@ -1,4 +1,4 @@
-// Stores user information and allows the user to authenticate  against
+// Stores client and company administrator identities for authentication.
 table user {
   auth = true
 
@@ -9,19 +9,22 @@ table user {
     }
   
     text name filters=trim
-    email? email filters=trim|lower
-    password? password filters=min:8|minAlpha:1|minDigit:1 {
+    email email filters=trim|lower
+    password password filters=min:8|minAlpha:1|minDigit:1 {
       visibility = "internal"
     }
   
-    // Reference to the company the user belongs to.
+    text phone? filters=trim {
+      visibility = "private"
+    }
+  
+    // Clients have no company; administrators must be linked to exactly one.
     int account_id? {
       table = "account"
     }
   
-    // The role of the user within their company (e.g., 'admin', 'member').
-    enum role? {
-      values = ["admin", "member"]
+    enum role {
+      values = ["client", "admin"]
       visibility = "private"
     }
   

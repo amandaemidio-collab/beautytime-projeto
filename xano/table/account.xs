@@ -1,4 +1,4 @@
-// Stores information about accounts that users belong to
+// Stores company information for company administrators.
 table account {
   auth = false
 
@@ -8,8 +8,9 @@ table account {
       visibility = "private"
     }
   
-    // The name of the company.
-    text name? filters=trim
+    // The company's public name and booking-link identifier.
+    text name filters=trim
+    text public_identifier filters=trim
   
     // A brief description of the company.
     text description? filters=trim
@@ -21,6 +22,7 @@ table account {
     {type: "primary", field: [{name: "id"}]}
     {type: "gin", field: [{name: "xdo", op: "jsonb_path_op"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree|unique", field: [{name: "public_identifier", op: "asc"}]}
   ]
 
   tags = ["xano:quick-start"]

@@ -25,7 +25,7 @@ Representa um estabelecimento que usa o BeautyTime: salão de beleza, barbearia,
 
 ### Principais informações
 - nome;
-- identificador público usado no link de agendamento;
+- identificador público usado na rota `/agendar/{identificador}`; contém 3 a 40 caracteres, somente letras minúsculas, números e hífen, sem hífens nas extremidades ou consecutivos;
 - telefone e endereço;
 - situação (ativa ou inativa).
 
@@ -34,7 +34,7 @@ Representa um estabelecimento que usa o BeautyTime: salão de beleza, barbearia,
 - Possui vários profissionais, serviços e agendamentos.
 
 ### Regras estruturais
-- O identificador do link é único entre todas as empresas.
+- O identificador do link é único entre todas as empresas e respeita o formato especificado acima.
 - Todos os profissionais, serviços e agendamentos pertencem a exatamente uma empresa.
 
 ---
@@ -49,10 +49,11 @@ Usuário responsável por gerenciar uma empresa.
 - senha.
 
 ### Relacionamentos
-- Pertence a uma empresa.
+- Pertence obrigatoriamente a exatamente uma empresa.
 
 ### Regras estruturais
 - Só gerencia dados da própria empresa.
+- Administradores são as únicas contas associadas a uma empresa; uma conta de administrador gerencia uma única empresa.
 
 ---
 
@@ -71,6 +72,7 @@ Pessoa que agenda serviços.
 
 ### Regras estruturais
 - A conta da cliente é da plataforma, não de uma empresa: a mesma cliente pode agendar em empresas diferentes com a mesma conta.
+- Nunca possui associação com uma empresa.
 - Só vê e cancela os próprios agendamentos.
 
 ---

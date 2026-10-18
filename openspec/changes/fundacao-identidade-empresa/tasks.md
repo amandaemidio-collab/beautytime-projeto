@@ -2,9 +2,9 @@
 
 ## 1. Modelo Xano sem migração legada
 
-- [ ] 1.1 Preparar o modelo Xano sem migração de usuários ou contas legadas, pois os dados atuais são apenas de teste e podem ser descartados; verificar que o novo modelo funciona sem depender desses registros.
-- [ ] 1.2 Adaptar `user` e `account` para cliente/administrador e empresa, incluindo campos obrigatórios, vínculo permitido por tipo e unicidade do identificador público; validar os arquivos XanoScript pelo Xano Developer MCP e executar `xano workspace push --dry-run`, apresentar o resultado e aguardar confirmação explícita antes de qualquer push real.
-- [ ] 1.3 Atualizar `docs/domain-model.md` com os invariantes finais de identidade, associação e identificador público; verificar que o documento corresponde ao modelo aplicado e aos requisitos das duas specs.
+- [x] 1.1 Preparar o modelo Xano sem migração de usuários ou contas legadas, pois os dados atuais são apenas de teste e podem ser descartados; verificar que o novo modelo funciona sem depender desses registros.
+- [x] 1.2 Adaptar `user` e `account` para cliente/administrador e empresa, incluindo campos obrigatórios, vínculo permitido por tipo e unicidade do identificador público; validar os arquivos XanoScript pelo Xano Developer MCP e executar `xano workspace push --dry-run`, apresentar o resultado e aguardar confirmação explícita antes de qualquer push real.
+- [x] 1.3 Atualizar `docs/domain-model.md` com os invariantes finais de identidade, associação e identificador público; verificar que o documento corresponde ao modelo aplicado e aos requisitos das duas specs.
 
 ## 2. APIs de identidade e empresa no Xano
 
