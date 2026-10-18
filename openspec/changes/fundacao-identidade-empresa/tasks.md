@@ -8,10 +8,10 @@
 
 ## 2. APIs de identidade e empresa no Xano
 
-- [ ] 2.1 Implementar cadastro e login de cliente e administrador com validação de tipo, e-mail único e sessão nativa Xano; verificar sucesso, e-mail duplicado, senha incorreta, tentativa de login pelo fluxo do outro tipo e rejeição de vínculo de cliente a empresa.
-- [ ] 2.2 Implementar cadastro transacional de administrador e empresa, com slug de 3 a 40 caracteres contendo apenas letras minúsculas ASCII, números ou hífen, sem hífen nas extremidades ou hífens consecutivos, e tratamento de colisão concorrente; verificar limites de 3/40, rejeição de 2/41 caracteres, caixa alta, hífens nas extremidades e hífens consecutivos, além da ausência de órfãos em caso de falha.
-- [ ] 2.3 Adaptar a resposta de identidade autenticada e bloquear os fluxos genéricos incompatíveis de adesão a conta e alteração de papel; verificar que o tipo e vínculo da conta não podem ser alterados por esses endpoints.
-- [ ] 2.4 Implementar consulta pública por slug com resposta limitada a campos públicos; verificar empresa existente, identificador inexistente e ausência de campos de autenticação ou dados privados.
+- [x] 2.1 Implementar cadastro e login de cliente e administrador com validação de tipo, e-mail único e sessão nativa Xano; verificar sucesso, e-mail duplicado, senha incorreta, tentativa de login pelo fluxo do outro tipo e rejeição de vínculo de cliente a empresa.
+- [x] 2.2 Implementar cadastro transacional de administrador e empresa, com slug de 3 a 40 caracteres contendo apenas letras minúsculas ASCII, números ou hífen, sem hífen nas extremidades ou hífens consecutivos, e tratamento de colisão concorrente; verificar limites de 3/40, rejeição de 2/41 caracteres, caixa alta, hífens nas extremidades e hífens consecutivos, além da ausência de órfãos em caso de falha.
+- [x] 2.3 Adaptar a resposta de identidade autenticada e bloquear os fluxos genéricos incompatíveis de adesão a conta e alteração de papel; verificar que o tipo e vínculo da conta não podem ser alterados por esses endpoints.
+- [x] 2.4 Implementar consulta pública por slug com resposta limitada a campos públicos; verificar empresa existente, identificador inexistente e ausência de campos de autenticação ou dados privados.
 
 ## 3. Fluxos de interface em Reflex
 

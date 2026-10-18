@@ -6,7 +6,7 @@ function "Getting Started Template/create_event_log" {
     int user_id
   
     // Unique identifier for the account associated with the event.
-    int account_id
+    int? account_id
   
     // A description of the action performed by the user (e.g., 'login', 'created_invoice').
     text action

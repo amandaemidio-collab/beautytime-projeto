@@ -7,6 +7,11 @@ query "account/my_team_members" verb=GET {
   }
 
   stack {
+    precondition (false) {
+      error_type = "accessdenied"
+      error = "This generic team-members endpoint is no longer available."
+    }
+
     // Get the authenticated user record
     db.get user {
       field_name = "id"

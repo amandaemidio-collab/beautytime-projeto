@@ -15,6 +15,11 @@ query account verb=POST {
   }
 
   stack {
+    precondition (false) {
+      error_type = "accessdenied"
+      error = "Company registration must use the identity signup flow."
+    }
+
     // Create a new account record in the database.
     db.add account {
       enforce_hidden_fields = false

@@ -1,39 +1,37 @@
-// Signup and retrieve an authentication token
+// Register a platform-wide client account and return an authentication token.
 query "auth/signup" verb=POST {
   api_group = "Authentication"
 
   input {
-    text name?
-    email email? filters=trim|lower
-    text password?
+    text name filters=trim
+    email email filters=trim|lower
+    text phone filters=trim
+    text password
   }
 
   stack {
-    // Check if a user record with that email exists
     db.get user {
       field_name = "email"
       field_value = $input.email
-    } as $user
+      output = ["id"]
+    } as $existing_user
   
-    // Verify that the email being used to sign up is unique
-    precondition ($user == null) {
+    precondition ($existing_user == null) {
       error_type = "accessdenied"
       error = "This account is already in use."
     }
   
-    // Create a new user record
     db.add user {
       enforce_hidden_fields = false
       data = {
-        created_at: "now"
-        name      : $input.name
-        email     : $input.email
-        password  : $input.password
-        role      : "member"
+        name   : $input.name
+        email  : $input.email
+        phone  : $input.phone
+        password: $input.password
+        role   : "client"
       }
     } as $user
   
-    // Create an authentiction token
     security.create_auth_token {
       table = "user"
       extras = {}
@@ -41,18 +39,21 @@ query "auth/signup" verb=POST {
       id = $user.id
     } as $authToken
   
-    // Create an event log for signup
     function.run "Getting Started Template/create_event_log" {
       input = {
         user_id   : $user.id
-        account_id: 0
-        action    : "signup"
-        metadata  : $user
+        account_id: null
+        action    : "signup_client"
+        metadata  : {role: "client"}
       }
     } as $event_log
   }
 
-  response = {authToken: $authToken, user_id: $user.id}
+  response = {
+    authToken: $authToken
+    user_id  : $user.id
+    user_type: $user.role
+  }
   tags = ["xano:quick-start"]
   guid = "rUG4j5xdPgFjFGPIKXqnl6q3lKo"
 }

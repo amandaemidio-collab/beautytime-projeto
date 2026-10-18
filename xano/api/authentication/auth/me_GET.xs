@@ -7,20 +7,28 @@ query "auth/me" verb=GET {
   }
 
   stack {
-    // Get the user record based on the auth ID
     db.get user {
       field_name = "id"
       field_value = $auth.id
-      output = ["id", "created_at", "name", "email", "account_id", "role"]
+      output = ["id", "created_at", "name", "email", "phone", "account_id", "role"]
     } as $user
-  
-    // Create an event log for get user record
+
+    precondition ($user != null) {
+      error_type = "notfound"
+      error = "Authenticated user not found."
+    }
+
+    precondition (($user.role == "client" && $user.account_id == null) || ($user.role == "admin" && $user.account_id != null)) {
+      error_type = "accessdenied"
+      error = "The authenticated account has an invalid identity or company association."
+    }
+
     function.run "Getting Started Template/create_event_log" {
       input = {
         user_id   : $user.id
         account_id: $user.account_id
         action    : "get_auth_user"
-        metadata  : $user
+        metadata  : {role: $user.role}
       }
     } as $event_log
   }
