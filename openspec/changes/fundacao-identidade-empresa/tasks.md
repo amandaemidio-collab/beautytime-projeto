@@ -21,4 +21,4 @@
 
 ## 4. Verificação integrada
 
-- [ ] 4.1 Percorrer os fluxos ponta a ponta de cliente, administrador e consulta pública, incluindo e-mail duplicado, papéis incompatíveis, tentativa de vincular cliente a empresa, slug duplicado, comprimentos fora de 3–40, caracteres não permitidos, hífen inicial/final ou consecutivo e empresa inexistente; verificar a página pela rota `/agendar/{identificador}`, todos os cenários das specs e que nenhum endpoint genérico permite contornar as regras.
+- [x] 4.1 Percorrer os fluxos ponta a ponta de cliente, administrador e consulta pública, incluindo e-mail duplicado, papéis incompatíveis, tentativa de vincular cliente a empresa, slug duplicado, comprimentos fora de 3–40, caracteres não permitidos, hífen inicial/final ou consecutivo e empresa inexistente; verificar a página pela rota `/agendar/{identificador}`, todos os cenários das specs e que nenhum endpoint genérico permite contornar as regras.

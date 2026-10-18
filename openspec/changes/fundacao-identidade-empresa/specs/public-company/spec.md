@@ -39,3 +39,18 @@ O sistema SHALL permitir que qualquer pessoa consulte, sem autenticação, uma e
 #### Scenario: Dados privados da empresa
 - **WHEN** uma pessoa consulta uma empresa publicamente
 - **THEN** a resposta não inclui credenciais, dados de autenticação, nem informações privadas de administradores ou de outras empresas
+
+#### Scenario: Empresa não encontrada sem vazamento de estado de autenticação
+- **WHEN** uma pessoa abre `/agendar/{identificador}` para uma empresa inexistente, inclusive após um erro em uma tela de login
+- **THEN** a interface apresenta “Empresa não encontrada” sem exibir mensagens de autenticação ou cadastro
+
+### Requirement: Cadastro apresenta erros do identificador junto ao campo
+O sistema SHALL apresentar abaixo do campo do identificador um texto de ajuda fixo com o exemplo `salao-da-ana` e mensagens específicas para formato inválido e identificador já utilizado.
+
+#### Scenario: Identificador com formato inválido
+- **WHEN** a administradora informa um identificador em formato inválido no cadastro da empresa
+- **THEN** a interface explica a regra junto ao campo: “Use de 3 a 40 caracteres: letras minúsculas, números e hífen, sem começar ou terminar com hífen.”
+
+#### Scenario: Identificador já utilizado
+- **WHEN** a administradora informa um identificador já utilizado no cadastro da empresa
+- **THEN** a interface apresenta junto ao campo: “Este endereço já está em uso. Escolha outro.”

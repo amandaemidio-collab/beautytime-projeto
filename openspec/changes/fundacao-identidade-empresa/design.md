@@ -41,6 +41,12 @@ Criar uma consulta sem autenticação por slug que selecione apenas os campos p�
 
 Implementar em Reflex fluxos separados para cadastro/login de cliente e cadastro/login de administrador com dados da empresa. Após qualquer login bem-sucedido, navegar para uma página simples de boas-vindas sem funcionalidades de agendamento nem painel administrativo. A página pública de empresa usa a rota `/agendar/{identificador}` e consulta a API usando o slug. Validação de formulário melhora a experiência, mas todas as regras e autorizações permanecem no Xano.
 
+### Padronizar feedback e apresentação das telas
+
+Exibir o texto de ajuda `Exemplo: salao-da-ana` fixo abaixo do campo do endereço público e apresentar erros de formato ou colisão imediatamente abaixo dele, com mensagens distintas. A página pública mantém estado de erro próprio: para uma empresa inexistente, exibir `Empresa não encontrada`, sem reutilizar mensagens de autenticação ou cadastro.
+
+Usar em todas as telas uma apresentação mobile-first, com conteúdo em cartão central de cantos arredondados e sombra suave sobre fundo neutro claro. Centralizar paleta e tipografia em um único módulo: destaque rosa queimado `#B4235A`, texto cinza-escuro e Inter via Google Fonts. Os campos têm rótulos acima e altura confortável ao toque; ações principais ocupam toda a largura no celular. Exibir o logotipo textual `BeautyTime` no topo de cada tela e usar textos orientados a agendamento.
+
 ## Risks / Trade-offs
 
 - [Descartar dados de teste causa perda dos registros atuais no workspace] → O grupo confirmou que o workspace contém apenas dados de teste e que usuários e contas podem ser descartados; não desenvolver migração de dados legados.

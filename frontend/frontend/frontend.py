@@ -1,4 +1,4 @@
-"""BeautyTime identity and public-company pages."""
+"""BeautyTime booking, account, and public-company pages."""
 
 import re
 from typing import Any
@@ -8,22 +8,36 @@ import reflex as rx
 
 from frontend.api_client import request_json
 from frontend.api_config import api_url
+from frontend.theme import (
+    COLORS,
+    FORM_FIELD_STYLE,
+    FONT_FAMILY,
+    FONT_STYLESHEET,
+    GLOBAL_STYLES,
+    SHADOWS,
+)
 
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 PAGE_STYLE = {
     "min_height": "100vh",
-    "background_color": "#f7f5f2",
-    "padding": {"initial": "24px 16px", "md": "48px 24px"},
+    "background_color": COLORS["background"],
+    "font_family": FONT_FAMILY,
+    "padding": {"initial": "28px 16px", "md": "56px 24px"},
 }
 CARD_STYLE = {
     "width": "100%",
-    "max_width": "480px",
-    "padding": {"initial": "24px 20px", "md": "32px"},
-    "border": "1px solid #e9e3dc",
-    "border_radius": "20px",
-    "background_color": "white",
-    "box_shadow": "0 12px 36px rgba(47, 38, 31, 0.08)",
+    "max_width": "520px",
+    "padding": {"initial": "28px 20px", "md": "40px"},
+    "border": f"1px solid {COLORS['border']}",
+    "border_radius": "24px",
+    "background_color": COLORS["surface"],
+    "box_shadow": SHADOWS["card"],
 }
+HELPER_TEXT = "Exemplo: salao-da-ana"
+IDENTIFIER_FORMAT_ERROR = (
+    "Use de 3 a 40 caracteres: letras minúsculas, números e hífen, "
+    "sem começar ou terminar com hífen."
+)
 
 
 def _api_error(status: int, data: dict[str, object]) -> str:
@@ -33,17 +47,23 @@ def _api_error(status: int, data: dict[str, object]) -> str:
         return str(data.get("message", "Não foi possível conectar à API."))
     if status == 429:
         return "Muitas tentativas em pouco tempo. Aguarde e tente novamente."
-    if "identifier is already in use" in message:
-        return "Este identificador já está em uso."
     if "already in use" in message:
         return "Este e-mail já está em uso."
-    if "public identifier must" in message:
-        return "Use de 3 a 40 caracteres: letras minúsculas, números e hífens simples."
     if "invalid credentials" in message:
         return "E-mail ou senha inválidos para este tipo de acesso."
     if status in (400, 422):
         return "Confira os dados informados e tente novamente."
     return f"Não foi possível concluir a solicitação (HTTP {status})."
+
+
+def _identifier_error(data: dict[str, object]) -> str | None:
+    """Return a field-specific message when Xano rejects a public identifier."""
+    message = str(data.get("message", "")).lower()
+    if "public identifier" not in message and "identifier" not in message:
+        return None
+    if "already in use" in message:
+        return "Este endereço já está em uso. Escolha outro."
+    return IDENTIFIER_FORMAT_ERROR
 
 
 def _field(
@@ -56,7 +76,7 @@ def _field(
 ) -> rx.Component:
     """Create a labeled form field without copying its value into app state."""
     return rx.vstack(
-        rx.text(label, size="2", weight="medium", color="#3f3833"),
+        rx.text(label, size="2", weight="medium", color=COLORS["text"]),
         rx.input(
             name=name,
             type=input_type,
@@ -65,6 +85,47 @@ def _field(
             width="100%",
             size="3",
             **input_props,
+        ),
+        align="stretch",
+        spacing="2",
+        width="100%",
+    )
+
+
+def _identifier_field() -> rx.Component:
+    return rx.vstack(
+        rx.text(
+            "Endereço público da empresa",
+            size="2",
+            weight="medium",
+            color=COLORS["text"],
+        ),
+        rx.input(
+            name="public_identifier",
+            type="text",
+            placeholder=HELPER_TEXT.split(": ", maxsplit=1)[-1],
+            required=True,
+            min_length=3,
+            max_length=40,
+            pattern="[a-z0-9]+(-[a-z0-9]+)*",
+            width="100%",
+            size="3",
+            style=FORM_FIELD_STYLE,
+            aria_invalid=State.identifier_error != "",
+            aria_described_by="public-identifier-help public-identifier-error",
+        ),
+        rx.text(
+            HELPER_TEXT,
+            id="public-identifier-help",
+            size="2",
+            color=COLORS["muted"],
+        ),
+        rx.text(
+            State.identifier_error,
+            id="public-identifier-error",
+            role="alert",
+            size="2",
+            color=COLORS["error"],
         ),
         align="stretch",
         spacing="2",
@@ -83,30 +144,38 @@ def _form_page(
     return rx.box(
         rx.vstack(
             rx.link(
-                rx.heading("BeautyTime", size="6", color="#7c3f55"),
+                _brand(),
                 href="/",
                 underline="none",
             ),
             rx.box(
                 rx.vstack(
-                    rx.heading(title, size="7", color="#282321"),
-                    rx.text(description, color="#706761"),
+                    rx.heading(title, size="8", color=COLORS["text"], weight="bold"),
+                    rx.text(description, color=COLORS["muted"], line_height="1.6"),
                     rx.form(
                         rx.vstack(
                             *fields,
-                            rx.text(State.message, color="#a83232", size="2"),
+                            rx.text(
+                                State.message,
+                                color=COLORS["error"],
+                                size="2",
+                                role="alert",
+                            ),
                             rx.button(
                                 submit_label,
                                 type="submit",
                                 width="100%",
                                 size="3",
-                                background_color="#7c3f55",
-                                color="white",
-                                _hover={"background_color": "#653247"},
+                                style=FORM_FIELD_STYLE,
+                                height="52px",
+                                background_color=COLORS["accent"],
+                                color=COLORS["surface"],
+                                _hover={"background_color": COLORS["accent_hover"]},
                             ),
                             align="stretch",
                             spacing="4",
                             width="100%",
+                            font_family=FONT_FAMILY,
                         ),
                         on_submit=handler,
                         reset_on_submit=False,
@@ -122,11 +191,21 @@ def _form_page(
             align="center",
             spacing="6",
             width="100%",
-            max_width="480px",
+            max_width="520px",
         ),
         display="flex",
         justify_content="center",
         style=PAGE_STYLE,
+    )
+
+
+def _brand() -> rx.Component:
+    return rx.heading(
+        "BeautyTime",
+        size="6",
+        weight="bold",
+        color=COLORS["accent"],
+        letter_spacing="-0.04em",
     )
 
 
@@ -136,6 +215,7 @@ class State(rx.State):
     _auth_token: str = ""
 
     message: str = ""
+    identifier_error: str = ""
     user_name: str = ""
     user_role: str = ""
     company_name: str = ""
@@ -148,6 +228,7 @@ class State(rx.State):
     @rx.event
     def clear_message(self):
         self.message = ""
+        self.identifier_error = ""
 
     def _set_session_from_identity(
         self,
@@ -264,6 +345,8 @@ class State(rx.State):
 
     @rx.event
     def admin_signup(self, form_data: dict[str, Any]):
+        self.message = ""
+        self.identifier_error = ""
         name = form_data.get("name", "").strip()
         email = form_data.get("email", "").strip()
         password = form_data.get("password", "")
@@ -275,10 +358,7 @@ class State(rx.State):
         if not 3 <= len(identifier) <= 40 or not IDENTIFIER_PATTERN.fullmatch(
             identifier
         ):
-            self.message = (
-                "Use de 3 a 40 caracteres: letras minúsculas, números "
-                "e hífens simples, sem hífen no início ou no fim."
-            )
+            self.identifier_error = IDENTIFIER_FORMAT_ERROR
             return
 
         payload: dict[str, object] = {
@@ -297,7 +377,9 @@ class State(rx.State):
             payload,
         )
         if status not in (200, 201):
-            self.message = _api_error(status, data)
+            self.identifier_error = _identifier_error(data) or ""
+            if not self.identifier_error:
+                self.message = _api_error(status, data)
             return
         if not self._accept_signup(data, "admin", name):
             return
@@ -362,6 +444,8 @@ class State(rx.State):
     def load_public_company(self):
         path = str(self.router.url.path).rstrip("/")
         identifier = unquote(path.rsplit("/", 1)[-1]).strip()
+        self.message = ""
+        self.identifier_error = ""
         self.public_company_name = ""
         self.public_company_identifier = ""
         self.public_company_found = False
@@ -370,7 +454,7 @@ class State(rx.State):
             not 3 <= len(identifier) <= 40
             or not IDENTIFIER_PATTERN.fullmatch(identifier)
         ):
-            self.public_company_message = "Empresa não encontrada."
+            self.public_company_message = "Empresa não encontrada"
             return
 
         query = urlencode({"public_identifier": identifier})
@@ -379,10 +463,12 @@ class State(rx.State):
             f"{api_url('members_accounts', 'company/public')}?{query}",
         )
         if status == 404:
-            self.public_company_message = "Empresa não encontrada."
+            self.public_company_message = "Empresa não encontrada"
             return
         if status != 200:
-            self.public_company_message = _api_error(status, data)
+            self.public_company_message = (
+                "Não foi possível carregar os dados públicos da empresa."
+            )
             return
 
         self.public_company_name = str(data.get("name", ""))
@@ -397,10 +483,10 @@ class State(rx.State):
 def index() -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.heading("BeautyTime", size="8", color="#7c3f55"),
+            _brand(),
             rx.text(
-                "Identidade e empresa em um só lugar.",
-                color="#706761",
+                "Agende seu horário em poucos toques.",
+                color=COLORS["muted"],
                 size="4",
                 text_align="center",
             ),
@@ -424,14 +510,19 @@ def index() -> rx.Component:
             ),
             rx.text(
                 "Já tem o link de uma empresa? Acesse /agendar/identificador.",
-                color="#706761",
+                color=COLORS["muted"],
                 size="2",
                 text_align="center",
             ),
             align="center",
             spacing="6",
             width="100%",
-            max_width="860px",
+            max_width="900px",
+            padding={"initial": "28px 20px", "md": "40px"},
+            border=f"1px solid {COLORS['border']}",
+            border_radius="24px",
+            background_color=COLORS["surface"],
+            box_shadow=SHADOWS["card"],
         ),
         display="flex",
         justify_content="center",
@@ -447,29 +538,31 @@ def _entry_card(
 ) -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.heading(title, size="5", color="#282321"),
-            rx.text(description, color="#706761"),
+            rx.heading(title, size="5", color=COLORS["text"]),
+            rx.text(description, color=COLORS["muted"], line_height="1.6"),
             rx.link(
                 rx.button(
                     "Entrar",
                     width="100%",
-                    background_color="#7c3f55",
-                    color="white",
-                    _hover={"background_color": "#653247"},
+                    height="52px",
+                    background_color=COLORS["accent"],
+                    color=COLORS["surface"],
+                    _hover={"background_color": COLORS["accent_hover"]},
                 ),
                 href=login_route,
                 width="100%",
             ),
-            rx.link("Criar conta", href=signup_route, color="#7c3f55"),
+            rx.link("Criar conta", href=signup_route, color=COLORS["accent"]),
             align="stretch",
             spacing="4",
             width="100%",
         ),
         flex="1",
-        padding="24px",
-        border="1px solid #e9e3dc",
-        border_radius="20px",
-        background_color="white",
+        padding={"initial": "22px", "md": "28px"},
+        border=f"1px solid {COLORS['border']}",
+        border_radius="18px",
+        background_color=COLORS["surface"],
+        box_shadow=SHADOWS["tile"],
     )
 
 
@@ -491,7 +584,7 @@ def client_signup_page() -> rx.Component:
             ),
         ],
         State.client_signup,
-        rx.link("Já tem conta? Entrar", href="/clientes/login", color="#7c3f55"),
+        rx.link("Já tem conta? Entrar", href="/clientes/login", color=COLORS["accent"]),
     )
 
 
@@ -510,7 +603,7 @@ def client_login_page() -> rx.Component:
             ),
         ],
         State.client_login,
-        rx.link("Ainda não tem conta? Cadastre-se", href="/clientes/cadastro", color="#7c3f55"),
+        rx.link("Ainda não tem conta? Cadastre-se", href="/clientes/cadastro", color=COLORS["accent"]),
     )
 
 
@@ -531,14 +624,7 @@ def admin_signup_page() -> rx.Component:
             ),
             _field("Telefone (opcional)", "phone", input_type="tel", required=False),
             _field("Nome da empresa", "company_name", placeholder="Nome do salão"),
-            _field(
-                "Identificador público",
-                "public_identifier",
-                placeholder="meu-salao",
-                min_length=3,
-                max_length=40,
-                pattern="[a-z0-9]+(-[a-z0-9]+)*",
-            ),
+            _identifier_field(),
             _field(
                 "Descrição (opcional)",
                 "description",
@@ -551,7 +637,7 @@ def admin_signup_page() -> rx.Component:
         rx.link(
             "Já tem conta administradora? Entrar",
             href="/admin/login",
-            color="#7c3f55",
+            color=COLORS["accent"],
         ),
     )
 
@@ -574,7 +660,7 @@ def admin_login_page() -> rx.Component:
         rx.link(
             "Ainda não tem empresa? Cadastre-se",
             href="/admin/cadastro",
-            color="#7c3f55",
+            color=COLORS["accent"],
         ),
     )
 
@@ -582,11 +668,11 @@ def admin_login_page() -> rx.Component:
 def welcome_page() -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.heading("BeautyTime", size="6", color="#7c3f55"),
+            _brand(),
             rx.box(
                 rx.vstack(
-                    rx.heading("Boas-vindas", size="7", color="#282321"),
-                    rx.text(State.message, color="#a83232"),
+                    rx.heading("Boas-vindas", size="7", color=COLORS["text"]),
+                    rx.text(State.message, color=COLORS["error"], role="alert"),
                     rx.cond(
                         State.user_role != "",
                         rx.vstack(
@@ -597,18 +683,18 @@ def welcome_page() -> rx.Component:
                                     "Sua conta administradora está conectada.",
                                     "Sua conta de cliente está conectada.",
                                 ),
-                                color="#706761",
+                                color=COLORS["muted"],
                             ),
                             rx.cond(
                                 State.company_identifier != "",
                                 rx.link(
                                     f"/agendar/{State.company_identifier}",
                                     href=f"/agendar/{State.company_identifier}",
-                                    color="#7c3f55",
+                                    color=COLORS["accent"],
                                 ),
                                 rx.text(
-                                    "O painel e os agendamentos estarão disponíveis em uma próxima etapa.",
-                                    color="#706761",
+                                    "Os recursos de agendamento e gestão estarão disponíveis em breve.",
+                                    color=COLORS["muted"],
                                 ),
                             ),
                             rx.button(
@@ -616,6 +702,8 @@ def welcome_page() -> rx.Component:
                                 on_click=State.logout,
                                 variant="outline",
                                 width="100%",
+                                height="52px",
+                                color=COLORS["accent"],
                             ),
                             align="stretch",
                             spacing="4",
@@ -641,7 +729,7 @@ def welcome_page() -> rx.Component:
             align="center",
             spacing="6",
             width="100%",
-            max_width="480px",
+            max_width="520px",
         ),
         display="flex",
         justify_content="center",
@@ -653,7 +741,7 @@ def public_company_page() -> rx.Component:
     return rx.box(
         rx.vstack(
             rx.link(
-                rx.heading("BeautyTime", size="6", color="#7c3f55"),
+                _brand(),
                 href="/",
                 underline="none",
             ),
@@ -665,25 +753,25 @@ def public_company_page() -> rx.Component:
                             rx.heading(
                                 State.public_company_name,
                                 size="7",
-                                color="#282321",
+                                color=COLORS["text"],
                             ),
                             rx.text(
                                 f"/agendar/{State.public_company_identifier}",
-                                color="#706761",
+                                color=COLORS["muted"],
                             ),
                             rx.text(
-                                "Esta é a página pública da empresa. "
-                                "Os agendamentos estarão disponíveis em uma próxima etapa.",
-                                color="#706761",
+                                "Agende seu horário em poucos toques. "
+                                "A disponibilidade de agendamentos estará disponível em breve.",
+                                color=COLORS["muted"],
                             ),
                             align="stretch",
                             spacing="4",
                         ),
                         rx.vstack(
-                            rx.heading("Empresa", size="7", color="#282321"),
+                            rx.heading("Empresa", size="7", color=COLORS["text"]),
                             rx.text(
                                 State.public_company_message,
-                                color="#706761",
+                                color=COLORS["muted"],
                             ),
                             align="stretch",
                             spacing="4",
@@ -697,7 +785,7 @@ def public_company_page() -> rx.Component:
             align="center",
             spacing="6",
             width="100%",
-            max_width="480px",
+            max_width="520px",
         ),
         display="flex",
         justify_content="center",
@@ -705,7 +793,10 @@ def public_company_page() -> rx.Component:
     )
 
 
-app = rx.App()
+app = rx.App(
+    stylesheets=[FONT_STYLESHEET],
+    style=GLOBAL_STYLES,
+)
 app.add_page(index, route="/", title="BeautyTime")
 app.add_page(
     client_signup_page,
