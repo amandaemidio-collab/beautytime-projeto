@@ -6,9 +6,9 @@
 
 ## 2. APIs administrativas
 
-- [ ] 2.1 Implementar no grupo `Catalogo` os endpoints autenticados de listagem e cadastro; garantir que a empresa venha da função de autorização e que serviço novo seja ativo. Validar os arquivos pelo Xano Developer MCP e, após publicação autorizada, chamar os endpoints por HTTP com administradora, cliente e sem sessão; conferir empresa correta, rejeição por tipo/sessão e lista vazia.
-- [ ] 2.2 Implementar os endpoints autenticados de edição de nome, duração e preço e de ativação/desativação, reutilizando a validação e o isolamento por empresa sem remover registros. Validar XanoScript pelo MCP e, por HTTP, conferir edição válida, nome mantido, limites de duração/preço, alternância de situação, preservação dos dados e resposta `notfound` para serviço inexistente ou de outra empresa.
-- [ ] 2.3 Implementar a consulta pública sem autenticação por identificador da empresa, retornando apenas serviços ativos e campos públicos, em ordem alfabética. Validar XanoScript pelo MCP e, por HTTP, conferir empresa com serviços ativos/inativos, lista vazia e identificador desconhecido.
+- [x] 2.1 Implementar no grupo `Catalogo` os endpoints autenticados de listagem e cadastro; garantir que a empresa venha da função de autorização e que serviço novo seja ativo. Validar os arquivos pelo Xano Developer MCP e, após publicação autorizada, chamar os endpoints por HTTP com administradora, cliente e sem sessão; conferir empresa correta, rejeição por tipo/sessão e lista vazia.
+- [x] 2.2 Implementar os endpoints autenticados de edição de nome, duração e preço e de ativação/desativação, reutilizando a validação e o isolamento por empresa sem remover registros. Validar XanoScript pelo MCP e, por HTTP, conferir edição válida, nome mantido, limites de duração/preço, alternância de situação, preservação dos dados e resposta `notfound` para serviço inexistente ou de outra empresa.
+- [x] 2.3 Implementar a consulta pública sem autenticação por identificador da empresa, retornando apenas serviços ativos e campos públicos, em ordem alfabética. Validar XanoScript pelo MCP e, por HTTP, conferir empresa com serviços ativos/inativos, lista vazia e identificador desconhecido.
 
 ## 3. Publicação e verificação HTTP do backend
 
