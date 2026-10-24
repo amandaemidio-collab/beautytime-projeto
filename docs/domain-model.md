@@ -103,8 +103,8 @@ Algo que a empresa oferece, como corte, escova, barba ou manicure.
 
 ### Principais informações
 - nome;
-- duração;
-- preço;
+- duração em minutos inteiros;
+- preço em centavos inteiros;
 - situação (ativo ou inativo).
 
 ### Relacionamentos
@@ -112,8 +112,12 @@ Algo que a empresa oferece, como corte, escova, barba ou manicure.
 - Pode ser realizado por um ou mais profissionais.
 
 ### Regras estruturais
+- O nome, após remover espaços das extremidades, contém de 2 a 80 caracteres e é único por empresa sem diferenciar maiúsculas e minúsculas; a unicidade também inclui serviços inativos.
+- A duração é um número inteiro de 15 a 480 minutos, sempre múltiplo de 15.
+- O preço é um número inteiro de 0 a 9.999.999 centavos.
 - A duração define quanto tempo o agendamento ocupa na agenda do profissional.
 - Um serviço inativo não aparece para novos agendamentos.
+- A desativação preserva o registro e seus dados; serviços não são excluídos fisicamente.
 
 ---
 

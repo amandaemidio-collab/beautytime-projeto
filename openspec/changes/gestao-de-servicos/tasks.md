@@ -2,7 +2,7 @@
 
 ## 1. Modelo e regras no Xano
 
-- [ ] 1.1 Consultar a documentação Xano Developer MCP e criar a tabela de serviços, a função de autorização que deriva a empresa da sessão e a função compartilhada de validação; validar todos os arquivos XanoScript pelo MCP. Atualizar `docs/domain-model.md` com nome de 2–80 caracteres único por empresa sem diferenciar caixa, duração inteira de 15–480 minutos múltipla de 15, preço em centavos de 0–9.999.999 e preservação do serviço por desativação; conferir manualmente cada regra contra `specs/service-catalog/spec.md`.
+- [x] 1.1 Consultar a documentação Xano Developer MCP e criar a tabela de serviços, a função de autorização que deriva a empresa da sessão e a função compartilhada de validação; validar todos os arquivos XanoScript pelo MCP. Atualizar `docs/domain-model.md` com nome de 2–80 caracteres único por empresa sem diferenciar caixa, duração inteira de 15–480 minutos múltipla de 15, preço em centavos de 0–9.999.999 e preservação do serviço por desativação; conferir manualmente cada regra contra `specs/service-catalog/spec.md`.
 
 ## 2. APIs administrativas
 
