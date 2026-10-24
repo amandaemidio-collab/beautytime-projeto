@@ -27,4 +27,5 @@ table service {
     {type: "btree", field: [{name: "account_id"}]}
     {type: "btree|unique", field: [{name: "account_id"}, {name: "name_key"}]}
   ]
+  guid = "LgbZVQt-cnYclVvWApAxt6sJ4Ss"
 }

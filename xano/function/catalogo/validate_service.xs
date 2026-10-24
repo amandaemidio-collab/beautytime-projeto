@@ -37,4 +37,5 @@ function "Catalogo/validate_service" {
     duration_minutes : $input.duration_minutes
     price_cents      : $input.price_cents
   }
+  guid = "EAbV2N7s31Ws34uzKTDt28A_QEw"
 }

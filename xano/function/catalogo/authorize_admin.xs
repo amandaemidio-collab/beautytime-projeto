@@ -29,4 +29,5 @@ function "Catalogo/authorize_admin" {
   }
 
   response = $account.id
+  guid = "uqMCVrkwT_bwsEiR50NdjxuwRFM"
 }
