@@ -2,193 +2,95 @@
 
 ## Context
 
-Situação atual relevante (motivação em `proposal.md`):
+Consulte `proposal.md` para a motivação e `specs/service-catalog/spec.md` e `specs/identity/spec.md` para os contratos observáveis desta mudança.
 
-- **Xano.** `user` tem `role` (`client`/`admin`) e `account_id`, obrigatório só para administradores. `account` representa a empresa e tem `public_identifier` único.
-  - Os grupos de API existentes são `Authentication` e `Members & Accounts`, este último com `company/public`.
-  - Não existe função de autorização ligada ao domínio. `Getting Started Template/role_based_access_control` é genérica do quick-start.
-  - Os endpoints que alteram dados registram eventos com `Getting Started Template/create_event_log`.
-- **Reflex.** Todo o frontend está em `frontend/frontend/frontend.py` (836 linhas), com um único `State`.
-  - O token Xano fica em `_auth_token`, uma variável de backend que não vai ao navegador.
-  - Erros da API são traduzidos procurando trechos de texto na mensagem do Xano (`_api_error`, `_identifier_error`).
-  - Depois do login ou cadastro, todos os usuários vão para `/boas-vindas`.
-- **Testes.** O repositório não tem testes automatizados; a change anterior foi verificada manualmente.
+- **Xano:** `user` identifica clientes e administradoras por `role`; administradoras possuem `account_id`. `account` representa a empresa e tem `public_identifier` único. O grupo `Members & Accounts` já oferece a consulta pública da empresa.
+- **Reflex:** as páginas e o estado atual estão concentrados em `frontend/frontend/frontend.py`. O token Xano fica no estado de backend. O frontend consome os grupos configurados em `frontend/frontend/api_config.py`.
+- **Restrições:** o Xano é a autoridade para regras de negócio e isolamento por empresa. A mudança não introduz dependências; o `requirements.txt` oficial fica na raiz. O frontend deve sofrer somente extrações locais estritamente necessárias.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Criar um padrão de autorização de administradora que as próximas entidades da empresa (profissionais, horários, agendamentos) possam reutilizar sem mudança.
-- Garantir no banco a unicidade do nome por empresa, inclusive com cadastros simultâneos.
-- Deixar o frontend dividido de forma que cada change futura acrescente arquivos, em vez de crescer um único módulo.
-- Ter testes automatizados que cubram os cenários das specs pela API real, sem guardar credenciais no repositório.
+- Implementar um padrão de autorização administrativa que derive a empresa da sessão autenticada e possa ser reutilizado em endpoints administrativos.
+- Garantir persistência e consulta de serviços isoladas por empresa, com validação consistente no backend.
+- Manter uma fatia funcional vertical: gestão administrativa e apresentação pública dos serviços ativos.
+- Verificar os contratos por validação XanoScript, chamadas HTTP reais e inspeção manual da interface.
 
 **Non-Goals:**
-- Paginação, busca ou filtros na lista de serviços; o volume esperado por empresa é pequeno.
-- Testes de interface com navegador automatizado.
-- Refatorar a lógica de identidade além do necessário para mudar o redirecionamento e separar os módulos.
+- Excluir fisicamente serviços ou definir regras de exclusão relacionadas a vínculos futuros.
+- Criar infraestrutura de testes automatizados ou adicionar dependências de teste.
+- Dividir o frontend em módulos de páginas, estados e componentes como objetivo próprio.
+- Implementar seleção de serviço, profissionais, disponibilidade ou agendamentos.
 
 ## Decisions
 
-### Tabela `service` com nome normalizado e índice único composto
+### Persistir serviços vinculados à empresa e preservar o histórico por desativação
 
-Nova tabela `service` com os campos:
-- `account_id`: obrigatório, referência a `account`;
-- `name`: texto, sem espaços nas extremidades;
-- `name_key`: nome sem espaços nas extremidades e em minúsculas, privado;
-- `duration_minutes`: inteiro;
-- `price_cents`: inteiro;
-- `active`: booleano, padrão verdadeiro;
-- `created_at`.
+Criar uma tabela de serviço com `account_id` obrigatório, nome normalizado, duração em minutos, preço em centavos, situação e data de criação. O backend calcula a chave normalizada do nome; a requisição não define a empresa nem essa chave. Um índice único composto por empresa e chave do nome impede duplicatas inclusive em gravações concorrentes. A unicidade inclui serviços inativos, que podem ser reativados e não são removidos nesta mudança.
 
-Índices:
-- único em (`account_id`, `name_key`);
-- btree em `account_id`.
+O nome mantém os limites já propostos: 2 a 80 caracteres após remover espaços nas extremidades, sem diferenciar maiúsculas e minúsculas para unicidade por empresa. A duração aceita inteiros de 15 a 480, inclusive, divisíveis por 15. O preço é persistido como inteiro de centavos, entre 0 e 9.999.999; a interface recebe/apresenta valor em reais e converte para centavos antes de enviar. Valores monetários não são armazenados como ponto flutuante.
 
-O backend calcula `name_key` e nunca o recebe na requisição. A unicidade fica no banco porque uma verificação prévia isolada não protege cadastros simultâneos, o mesmo motivo usado para o identificador público.
+**Alternativas consideradas:** calcular unicidade somente por consulta não protege contra gravações simultâneas; excluir fisicamente impediria preservar o serviço para relações e histórico futuros; armazenar preço decimal introduziria representação monetária menos previsível.
 
-O endpoint ainda faz uma verificação prévia para devolver uma mensagem clara. Se dois cadastros simultâneos passarem por ela, a violação do índice é tratada como o mesmo erro de nome em uso.
+### Autorizar operações administrativas a partir da sessão
 
-- *Alternativa — comparar sem diferenciar maiúsculas na consulta, sem índice:* não garante unicidade sob concorrência.
-- *Alternativa — guardar o preço em decimal:* centavos inteiros evitam erros de arredondamento e simplificam a validação de limites. A conversão para "R$ 45,00" é apresentação e fica no frontend.
+Criar uma função reutilizável que recebe o id autenticado, confirma que o usuário é `admin` e que possui uma empresa, e devolve o `account_id`. Todo endpoint administrativo chama essa função e usa somente o identificador retornado. `account_id` não é um campo de entrada aceito como fonte de escopo.
 
-A exclusão é física (`db.del`). Ainda não há entidades que referenciem serviços. A regra de exclusão quando houver profissionais ou agendamentos vinculados fica para a change que criar esses vínculos.
+Ao editar ou alterar situação, carregar o serviço por `id` e `account_id`. Um serviço de outra empresa deve resultar no mesmo `notfound` de um id inexistente, sem revelar sua existência. A consulta pública localiza a empresa por `public_identifier` e devolve somente serviços ativos com os campos públicos definidos na spec.
 
-### Função reutilizável de autorização da administradora
+**Alternativas consideradas:** confiar em um id enviado pelo browser ou filtrar apenas no Reflex não aplica autorização no backend; a função genérica de papéis do quick-start não resolve o vínculo da administradora com a empresa.
 
-Criar a função `Autorizacao/empresa_da_administradora`:
-- recebe o id do usuário autenticado;
-- carrega o `user` correspondente;
-- exige `role == "admin"` e `account_id` preenchido, retornando acesso negado caso contrário;
-- devolve o `account_id`.
+### Agrupar endpoints de catálogo no Xano
 
-Todo endpoint administrativo começa chamando essa função com `$auth.id` e usa **apenas** o valor retornado para filtrar e gravar.
+Criar o grupo `Catalogo` com estes contratos:
 
-Os endpoints não declaram `account_id` como entrada. Assim, um `account_id` enviado no corpo é ignorado pelo Xano, como prevê o cenário "Tentativa de indicar outra empresa".
-
-**Serviço de outra empresa.** Para editar, alterar situação ou excluir, o serviço é buscado por `id` **e** `account_id`. Se não for encontrado, a resposta é `notfound`, igual à de um serviço inexistente. Isso evita revelar que o id existe em outra empresa.
-
-- *Alternativa — reutilizar `role_based_access_control`:* ela segue o modelo de papéis genérico do quick-start e não resolve a empresa. Adaptá-la mudaria código fora do escopo.
-
-### Novo grupo de API `Catalogo`
-
-Criar o grupo `Catalogo`. Nele ficam os endpoints de gestão do catálogo e também as consultas públicas do catálogo, que as próximas changes (profissionais) vão estender. O nome sem acento evita problemas em URLs e no CLI.
-
-| Método e rota | Auth | Finalidade |
+| Método e rota | Autenticação | Finalidade |
 |---|---|---|
-| `GET admin/services` | user | Empresa da administradora (`name`, `public_identifier`) e todos os seus serviços |
-| `POST admin/services` | user | Cadastrar (`name`, `duration_minutes`, `price_cents`) |
-| `PATCH admin/services/{service_id}` | user | Editar nome, duração e preço |
-| `PATCH admin/services/{service_id}/status` | user | Ativar ou desativar (`active`) |
-| `DELETE admin/services/{service_id}` | user | Excluir |
-| `GET public/services?public_identifier=` | — | Serviços ativos da empresa: `name`, `duration_minutes`, `price_cents`, por nome |
+| `GET admin/services` | usuário | Dados públicos básicos da empresa e todos os seus serviços, ativos e inativos |
+| `POST admin/services` | usuário | Cadastrar serviço ativo |
+| `PATCH admin/services/{service_id}` | usuário | Alterar nome, duração ou preço com as mesmas validações do cadastro |
+| `PATCH admin/services/{service_id}/status` | usuário | Ativar ou desativar serviço da própria empresa |
+| `GET public/services?public_identifier=` | nenhuma | Serviços ativos, sem ids internos, ordenados por nome |
 
-A listagem administrativa devolve os dados públicos da empresa para que a área administrativa mostre o nome do salão e o link público sem chamar outro endpoint.
+O grupo não terá endpoint DELETE. A validação comum é aplicada no cadastro e na edição. A API usa códigos estáveis para erros de nome, duração e preço, incluindo colisões do índice único, para permitir mensagens específicas no formulário. Operações administrativas que alteram dados mantêm o registro de eventos usado pelo workspace.
 
-A mudança de situação tem endpoint próprio para que a edição de dados e a ativação ou desativação não se misturem num mesmo formulário.
+**Alternativas consideradas:** colocar catálogo no grupo de autenticação misturaria responsabilidades; expor ids internos na resposta pública não é necessário para a apresentação informativa desta mudança.
 
-Os itens da listagem administrativa trazem `id`, necessário para as ações. A resposta pública não traz ids, conforme decidido no Explore. A seleção de serviço, que vai precisar de id, entra na change de agendamento.
+### Manter o frontend no módulo existente
 
-A validação de nome, duração e preço é escrita uma vez numa função compartilhada (`Catalogo/validar_servico`), usada pelo cadastro e pela edição.
+Reutilizar `frontend.py`, o estado atual, `api_client.py`, `api_config.py` e `theme.py`. Adicionar apenas a configuração de URL do grupo e o código mínimo de estado/renderização necessário para a lista, formulário, situação e seção pública. Extrair um helper ou componente somente se isso simplificar diretamente as telas novas; nenhuma estrutura modular ampla é requisito.
 
-Cadastro, edição, alteração de situação e exclusão registram evento com `create_event_log`, como os endpoints existentes.
+A administradora é encaminhada a `/admin/servicos` após login ou cadastro. O carregamento da rota verifica a identidade e o papel com `auth/me`; o backend continua sendo a barreira de autorização efetiva. A cliente permanece em `/boas-vindas`. A gestão lista ativos e inativos, permite criar/editar e ativar/desativar; não há ação de excluir. A interface pública apresenta apenas os ativos, sem ação de agendamento.
 
-### Códigos de erro estáveis no início da mensagem
+**Apresentação e erros:** duração em formato legível (por exemplo, `45 min` ou `1h 30min`); preço em reais com duas casas decimais. O formulário de duração usa passos de 15. O formulário converte o valor decimal digitado em centavos inteiros antes da chamada HTTP. Erros de validação aparecem junto ao campo correspondente; carregamento, lista vazia e falha de consulta dos serviços têm estados explícitos. A falha da lista pública não deve ocultar os dados públicos da empresa.
 
-Os erros de validação dos novos endpoints usam mensagens que começam com um código fixo:
-- `SERVICE_NAME_INVALID`
-- `SERVICE_NAME_TAKEN`
-- `SERVICE_DURATION_INVALID`
-- `SERVICE_PRICE_INVALID`
+**Alternativas consideradas:** criar uma árvore de páginas/estados/componentes agora ampliaria o risco de regressão sem entregar capacidade adicional; testes de browser automatizados e infraestrutura pytest foram explicitamente retirados do escopo.
 
-Cada código é seguido de `:` e de um texto livre.
+### Verificação e publicação
 
-O frontend associa cada código a um campo e a uma mensagem em português. Hoje a tradução procura trechos de texto em inglês, o que quebra quando o texto muda. Os endpoints antigos não mudam.
+Consultar a documentação Xano Developer MCP antes de escrever XanoScript, validar cada artefato XanoScript pelo MCP e verificar os contratos publicados por chamadas HTTP reais. Descrever os dados necessários, a chamada e o resultado esperado na própria tarefa. A interface é validada manualmente em fluxos reais e em viewport móvel.
 
-### Frontend dividido em módulos
+Executar `xano workspace push --dry-run`, apresentar o resultado e aguardar confirmação explícita antes de qualquer push real. O dry-run não autoriza publicação.
 
-```text
-frontend/frontend/
-├── frontend.py          # cria o app e registra as rotas
-├── api_client.py, api_config.py, theme.py   # inalterados (api_config ganha o grupo "catalogo")
-├── formatting.py        # funções puras: duração, preço, conversão "45,00" → 4500
-├── components/          # marca, cartão/página, campo de formulário, estados vazio/erro/carregando
-├── states/
-│   ├── session.py       # SessionState: _auth_token, papel, login/cadastro/logout, guarda de rota
-│   ├── public_company.py
-│   └── admin_services.py  # subestado de SessionState
-└── pages/               # home, cliente, administradora, boas-vindas, página pública, admin/serviços
-```
-
-O estado de serviços é um **subestado** de `SessionState`, para ler `_auth_token` sem expô-lo ao navegador. A separação mantém rotas, textos e comportamentos atuais; a verificação de regressão entra nas tarefas.
-
-`formatting.py` não importa Reflex, o que permite testá-lo sem subir o app.
-
-### Área administrativa e redirecionamento
-
-- **Rota da área administrativa:** `/admin/servicos`. Ela é a página inicial da administradora nesta change.
-- **Proteção da rota:** o `on_load` valida a sessão com `auth/me` e exige o papel `admin`; sem isso, redireciona para `/admin/login`. O backend continua sendo a barreira real.
-- **Redirecionamento:**
-  - login e cadastro da administradora levam a `/admin/servicos`;
-  - os da cliente continuam levando a `/boas-vindas`;
-  - se uma sessão de administradora abrir `/boas-vindas`, ela é redirecionada para a área administrativa.
-
-**Padrões de UI e UX:**
-- **Layout:** pensado primeiro para o celular. Cada serviço aparece como um cartão: nome, "45 min · R$ 45,00", indicação "Inativo" e menu de ações.
-- **Toque:** botões com pelo menos 44px de altura; a ação principal ocupa a largura toda no celular.
-- **Cadastro e edição:** um diálogo com um único formulário.
-  - Campos rotulados.
-  - Duração em minutos (`type=number`, `step=5`, `min=5`, `max=480`).
-  - Preço no formato brasileiro, com o prefixo "R$" visível.
-  - Erros aparecem abaixo do campo (`role="alert"`, `aria-invalid`), e os valores digitados são preservados.
-  - O botão fica desabilitado e mostra indicador enquanto a requisição está em andamento.
-- **Confirmações:**
-  - Excluir exige confirmação num diálogo de alerta, com o nome do serviço e a ação destrutiva em vermelho.
-  - Desativar não pede confirmação, porque pode ser desfeito; a mudança aparece num aviso de sucesso.
-- **Estados da tela:**
-  - carregando: esqueleto da lista;
-  - lista vazia: convite "Cadastre seu primeiro serviço";
-  - erro de carregamento: mensagem e botão "Tentar novamente".
-- **Ordem da lista:** ativos primeiro, depois inativos com opacidade reduzida; cada grupo em ordem alfabética.
-- **Cabeçalho:** nome da empresa, link "Ver página pública" e "Sair".
-- **Página pública:**
-  - Lista de serviços com nome à esquerda e duração e preço à direita.
-  - Sem botões que pareçam permitir agendar, já que a seleção ainda não existe.
-  - A seção "Serviços" tem estados próprios de carregamento, lista vazia e erro, independentes do cabeçalho da empresa.
-
-Toda a paleta e tipografia vêm de `theme.py`.
-
-### Testes com pytest e roteiro manual
-
-Acrescentar `pytest` a `requirements.txt`. É uma dependência só de desenvolvimento, padrão em Python, e não muda a execução do app. A alternativa `unittest`, da biblioteca padrão, resolveria, mas deixaria os testes de API mais verbosos.
-
-- **`frontend/tests/unit/`:**
-  - `formatting.py`: duração, preço e conversão "45,00" ↔ 4500, incluindo entradas inválidas;
-  - tradução dos códigos de erro para campos.
-- **`frontend/tests/api/`:**
-  - Testes contra a API real do workspace, cobrindo os cenários de `service-catalog`:
-    - limites de validação;
-    - nome duplicado ignorando maiúsculas;
-    - mesmo nome em outra empresa;
-    - acesso de cliente, de sessão inexistente e de outra empresa;
-    - desativação, reativação e exclusão;
-    - forma da resposta pública.
-  - Cada execução cria as próprias contas de administradora e cliente com e-mails aleatórios. Assim nenhuma credencial é guardada no repositório.
-  - Esses testes rodam só com `BEAUTYTIME_API_TESTS=1`, para não fazer chamadas de rede por acidente.
-- **Roteiro manual:** em `tasks.md`, para os comportamentos de interface que os testes automatizados não cobrem.
-
-Testes nativos do Xano não serão usados nesta change. Os testes de API pela fronteira HTTP verificam o mesmo contrato e servem para qualquer endpoint.
+**Alternativas consideradas:** não adicionar pytest ou outra dependência; comandos manuais HTTP evitam criar infraestrutura de teste fora do escopo e validam o contrato real da API.
 
 ## Risks / Trade-offs
 
-- [O tratamento da violação do índice único depende de como o Xano expõe esse erro] → Na aplicação, consultar o Xano Developer MCP sobre como capturar o erro (por exemplo, `try_catch`). Se não for possível distinguir o erro, manter a verificação prévia e documentar que a corrida restante devolve um erro genérico, sem duplicar dados.
-- [Os testes de API criam contas e empresas no workspace] → Os dados do workspace são de teste. Os testes usam o prefixo `teste-api-` nos identificadores e excluem os serviços que criam. As contas permanecem, porque não existe endpoint de exclusão de conta.
-- [A divisão do frontend pode quebrar fluxos já entregues] → Separar os módulos numa tarefa própria, antes de qualquer funcionalidade nova, e repetir o roteiro de identidade da change anterior antes de seguir.
-- [A sessão Reflex se perde se o servidor reiniciar] → Comportamento já existente. A proteção de rota redireciona para o login, sem erro. Persistir a sessão fica fora do escopo.
-- [Excluir serviços passará a ter impacto quando existirem vínculos] → Registrar em `docs/domain-model.md` que a regra de exclusão com dependências será definida na change de profissionais.
+- [Uma chamada de API pode enviar valor monetário malformado ou fracionado] → Converter e validar os centavos no backend; converter a entrada em reais no frontend e verificar limites via chamadas HTTP.
+- [Duas criações simultâneas podem tentar usar o mesmo nome] → Aplicar índice único composto no banco e mapear a violação para o erro de nome em uso, após confirmar o mecanismo suportado pelo Xano.
+- [Um endpoint administrativo pode escapar ao escopo da empresa] → Reutilizar a função que deriva a empresa da sessão; testar com duas administradoras, cliente e requisição sem sessão.
+- [Uma refatoração desnecessária pode regredir fluxos entregues] → Manter a estrutura Reflex existente e verificar login, cadastro e página pública da empresa no roteiro manual.
+- [A publicação pode alterar o workspace remoto de modo inesperado] → Inspecionar o dry-run e aguardar confirmação explícita antes de publicar.
+- [Desativação mantém o nome reservado] → Documentar e verificar que a unicidade inclui serviços inativos; a reativação preserva nome, duração e preço.
 
 ## Migration Plan
 
-1. Criar a tabela, as funções e o grupo `Catalogo` em `xano/`, validar pelo Xano Developer MCP e executar `xano workspace push --dry-run`. Apresentar o resultado e aguardar confirmação explícita antes do push real.
-2. Os endpoints existentes não mudam de contrato. Não há migração de dados.
-3. Publicar o frontend reorganizado e os novos fluxos; rodar os testes unitários, os de API e o roteiro manual.
-4. **Rollback:** reverter os commits do frontend e publicar novamente a versão anterior de `xano/` sem a tabela e o grupo, com dry-run e confirmação. Como nada referencia `service`, removê-la não afeta identidade nem empresa.
+1. Validar a tabela, as funções e os endpoints XanoScript com o Xano Developer MCP.
+2. Executar `xano workspace push --dry-run`, revisar o resultado e aguardar autorização explícita antes do push real.
+3. Confirmar por chamadas HTTP os endpoints administrativos e públicos, inclusive a autorização e os erros de validação.
+4. Publicar o frontend com área de gestão e apresentação pública, verificando manualmente os fluxos da cliente e administradora.
+5. **Rollback:** reverter as alterações de código e, caso seja necessária alteração remota no Xano, avaliar o dry-run reverso e obter confirmação antes de qualquer publicação. Não apagar serviços fisicamente como forma de rollback.
+
+## Open Questions
+
+Nenhuma decisão necessária para esta Change permanece em aberto. O comportamento futuro de profissionais, vínculos, horários e agendamentos será definido nas Changes correspondentes.

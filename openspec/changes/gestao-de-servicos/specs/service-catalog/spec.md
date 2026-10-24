@@ -2,120 +2,124 @@
 
 ## Purpose
 
-Permite que a administradora mantenha os serviços oferecidos pela própria empresa e que qualquer pessoa consulte, pela página pública, os serviços ativos dessa empresa.
+Permite que a administradora mantenha os serviços da própria empresa e que qualquer pessoa consulte, pela página pública, somente os serviços ativos desse estabelecimento.
 
 ## ADDED Requirements
 
 ### Requirement: Administradora cadastra serviços da própria empresa
-O sistema SHALL permitir que uma conta de administrador autenticada cadastre serviços com nome, duração e preço, vinculando cada serviço à empresa da própria conta, obtida da sessão e nunca de um dado enviado na requisição. Todo serviço novo SHALL nascer ativo.
+O sistema SHALL permitir que uma administradora autenticada cadastre serviços com nome, duração e preço, vinculando-os à empresa obtida da sessão autenticada. Todo serviço novo SHALL ser criado ativo.
 
 #### Scenario: Cadastro válido
-- **WHEN** uma administradora autenticada envia nome, duração e preço válidos
-- **THEN** o sistema cria o serviço ativo vinculado à empresa dela e o retorna com nome, duração, preço e situação
+- **WHEN** uma administradora envia nome, duração e preço válidos
+- **THEN** o sistema cria um serviço ativo na empresa da sessão e retorna seus dados
 
-#### Scenario: Tentativa de indicar outra empresa
-- **WHEN** uma administradora envia, junto ao cadastro, um identificador de empresa diferente da sua
-- **THEN** o sistema ignora esse identificador e vincula o serviço somente à empresa da conta autenticada
+#### Scenario: Identificador de empresa enviado na requisição
+- **WHEN** a administradora inclui um identificador de outra empresa no cadastro
+- **THEN** o sistema ignora esse identificador e associa o serviço somente à empresa da sessão
 
 #### Scenario: Cliente tenta cadastrar serviço
-- **WHEN** uma conta de cliente autenticada tenta cadastrar um serviço
-- **THEN** o sistema rejeita a operação com acesso negado e não cria o serviço
+- **WHEN** uma cliente autenticada tenta cadastrar um serviço
+- **THEN** o sistema rejeita a operação sem criar o serviço
 
 #### Scenario: Requisição sem autenticação
-- **WHEN** uma requisição sem sessão válida tenta cadastrar, listar, editar, alterar situação ou excluir serviços administrativos
-- **THEN** o sistema rejeita a operação sem criar, alterar ou revelar serviços
+- **WHEN** uma requisição sem sessão válida tenta cadastrar serviço
+- **THEN** o sistema rejeita a operação sem criar o serviço
 
 ### Requirement: Dados do serviço são validados
-O sistema SHALL exigir nome com 2 a 80 caracteres após remover espaços das extremidades, duração em minutos inteiros múltipla de 5 entre 5 e 480, e preço em centavos inteiros entre 0 e 9.999.999. Dados inválidos SHALL ser rejeitados sem criar nem alterar o serviço.
+O sistema SHALL validar o nome, a duração em minutos inteiros e o preço em centavos inteiros no cadastro e na edição, rejeitando dados inválidos sem criar ou alterar o serviço.
 
 #### Scenario: Limites aceitos
-- **WHEN** a administradora envia nome com 2 ou 80 caracteres, duração de 5 ou 480 minutos e preço de 0 ou 9.999.999 centavos
+- **WHEN** uma administradora envia nome com 2 ou 80 caracteres, duração de 15 ou 480 minutos e preço de 0 ou 9.999.999 centavos
 - **THEN** o sistema aceita os dados
 
-#### Scenario: Nome fora do limite
-- **WHEN** a administradora envia nome vazio, só com espaços, com 1 caractere ou com 81 caracteres
-- **THEN** o sistema rejeita a operação informando que o nome é inválido
+#### Scenario: Nome inválido
+- **WHEN** uma administradora envia nome vazio, só com espaços, com menos de 2 ou mais de 80 caracteres após remover espaços das extremidades
+- **THEN** o sistema rejeita a operação e identifica o campo de nome como inválido
 
 #### Scenario: Duração inválida
-- **WHEN** a administradora envia duração de 0, 4, 481 ou 32 minutos, ou valor não inteiro
-- **THEN** o sistema rejeita a operação informando que a duração deve ser múltipla de 5 entre 5 e 480 minutos
+- **WHEN** uma administradora envia duração abaixo de 15, acima de 480, não inteira ou não divisível por 15
+- **THEN** o sistema rejeita a operação e informa que a duração deve ser múltipla de 15 entre 15 e 480 minutos
 
 #### Scenario: Preço inválido
-- **WHEN** a administradora envia preço negativo, acima de 9.999.999 centavos ou não inteiro
-- **THEN** o sistema rejeita a operação informando que o preço é inválido
+- **WHEN** uma administradora envia preço negativo, acima de 9.999.999 centavos ou não inteiro
+- **THEN** o sistema rejeita a operação e identifica o campo de preço como inválido
+
+#### Scenario: Preço exibido em reais
+- **WHEN** o sistema exibe o preço de um serviço na interface
+- **THEN** a interface apresenta o valor em reais com duas casas decimais, convertendo os centavos armazenados
 
 ### Requirement: Nome do serviço é único na empresa
-O sistema SHALL impedir dois serviços com o mesmo nome na mesma empresa, comparando nomes sem espaços nas extremidades e sem diferenciar maiúsculas de minúsculas, considerando serviços ativos e inativos. Empresas diferentes SHALL poder usar o mesmo nome.
+O sistema SHALL impedir nomes repetidos na mesma empresa, comparando os nomes após remover espaços das extremidades e sem diferenciar maiúsculas de minúsculas, inclusive para serviços inativos.
 
 #### Scenario: Nome repetido na mesma empresa
-- **WHEN** a administradora cadastra ou renomeia um serviço para "corte feminino" e a empresa já tem um serviço "Corte Feminino", ativo ou inativo
-- **THEN** o sistema rejeita a operação informando que já existe um serviço com esse nome
+- **WHEN** uma administradora cadastra ou renomeia um serviço para um nome já usado por outro serviço da empresa, ativo ou inativo
+- **THEN** o sistema rejeita a operação e informa que o nome já está em uso
 
 #### Scenario: Mesmo nome em outra empresa
-- **WHEN** a administradora cadastra "Corte" e outra empresa já possui um serviço "Corte"
+- **WHEN** uma administradora cadastra um nome que só existe em outra empresa
 - **THEN** o sistema cria o serviço normalmente
 
 #### Scenario: Edição mantendo o próprio nome
-- **WHEN** a administradora edita a duração ou o preço de um serviço sem alterar o nome
-- **THEN** o sistema não trata o próprio serviço como duplicado
+- **WHEN** uma administradora altera duração ou preço sem mudar o nome do próprio serviço
+- **THEN** o sistema salva a edição sem tratar o serviço como duplicado
 
 ### Requirement: Administradora lista os serviços da própria empresa
-O sistema SHALL retornar à administradora autenticada todos os serviços da própria empresa, ativos e inativos, com nome, duração, preço e situação, e nunca serviços de outra empresa.
+O sistema SHALL listar à administradora autenticada os serviços ativos e inativos da empresa associada à sessão, sem expor serviços de outra empresa.
 
 #### Scenario: Listagem da própria empresa
-- **WHEN** uma administradora autenticada solicita seus serviços
-- **THEN** o sistema retorna apenas os serviços da empresa dela, incluindo os inativos
+- **WHEN** uma administradora autenticada solicita a lista de serviços
+- **THEN** o sistema retorna somente os serviços da empresa da sessão, com nome, duração, preço e situação
 
 #### Scenario: Empresa sem serviços
-- **WHEN** a empresa da administradora ainda não possui serviços
+- **WHEN** a empresa não possui serviços cadastrados
 - **THEN** o sistema retorna uma lista vazia
 
+#### Scenario: Acesso à listagem sem permissão
+- **WHEN** uma pessoa sem sessão válida ou uma cliente solicita a listagem administrativa
+- **THEN** o sistema rejeita a operação sem revelar serviços
+
 ### Requirement: Administradora edita serviços da própria empresa
-O sistema SHALL permitir que a administradora altere nome, duração e preço de um serviço da própria empresa, aplicando as mesmas validações do cadastro, e SHALL tratar serviços de outra empresa como inexistentes.
+O sistema SHALL permitir que a administradora altere nome, duração e preço de um serviço da própria empresa, aplicando as validações de cadastro.
 
 #### Scenario: Edição válida
-- **WHEN** a administradora envia novos dados válidos para um serviço da própria empresa
-- **THEN** o sistema atualiza o serviço e retorna os dados atualizados
+- **WHEN** uma administradora envia dados válidos para editar um serviço da própria empresa
+- **THEN** o sistema salva e retorna os dados atualizados
 
 #### Scenario: Serviço de outra empresa
-- **WHEN** a administradora tenta editar, alterar a situação ou excluir um serviço que pertence a outra empresa
-- **THEN** o sistema responde como não encontrado, sem alterar o serviço nem revelar seus dados
+- **WHEN** uma administradora tenta editar um serviço de outra empresa
+- **THEN** o sistema responde como não encontrado sem alterar nem revelar o serviço
 
 #### Scenario: Serviço inexistente
-- **WHEN** a administradora tenta editar, alterar a situação ou excluir um serviço que não existe
+- **WHEN** uma administradora tenta editar um serviço inexistente
 - **THEN** o sistema responde como não encontrado
 
-### Requirement: Administradora desativa e reativa serviços
-O sistema SHALL permitir que a administradora desative um serviço ativo e reative um serviço inativo da própria empresa, preservando seus dados.
+### Requirement: Administradora ativa e desativa serviços
+O sistema SHALL permitir que a administradora altere a situação de um serviço da própria empresa entre ativo e inativo sem remover seus dados.
 
 #### Scenario: Desativação
-- **WHEN** a administradora desativa um serviço ativo da própria empresa
-- **THEN** o serviço passa a inativo, continua na listagem administrativa e deixa de aparecer na consulta pública
+- **WHEN** uma administradora desativa um serviço ativo da própria empresa
+- **THEN** o serviço passa a inativo, permanece na listagem administrativa e deixa de aparecer publicamente
 
 #### Scenario: Reativação
-- **WHEN** a administradora reativa um serviço inativo da própria empresa
-- **THEN** o serviço volta a ativo com os mesmos nome, duração e preço e volta a aparecer na consulta pública
+- **WHEN** uma administradora reativa um serviço inativo da própria empresa
+- **THEN** o serviço volta a ativo com os mesmos dados e aparece novamente na consulta pública
 
-### Requirement: Administradora exclui serviços
-O sistema SHALL permitir que a administradora exclua definitivamente um serviço da própria empresa. A interface SHALL pedir confirmação explícita antes de excluir.
+#### Scenario: Serviço de outra empresa ou inexistente
+- **WHEN** uma administradora tenta alterar a situação de um serviço de outra empresa ou inexistente
+- **THEN** o sistema responde como não encontrado sem modificar qualquer serviço
 
-#### Scenario: Exclusão confirmada
-- **WHEN** a administradora confirma a exclusão de um serviço da própria empresa
-- **THEN** o sistema remove o serviço, que deixa de aparecer nas listagens administrativa e pública
+### Requirement: Serviços não são excluídos nesta capability
+O sistema SHALL preservar os serviços cadastrados e SHALL permitir sua retirada da oferta somente por desativação, sem endpoint ou ação de exclusão física.
 
-#### Scenario: Exclusão cancelada
-- **WHEN** a administradora abre a confirmação de exclusão e desiste
-- **THEN** a interface não envia a exclusão e o serviço permanece inalterado
-
-#### Scenario: Nome liberado após exclusão
-- **WHEN** a administradora exclui um serviço e depois cadastra outro com o mesmo nome
-- **THEN** o sistema cria o novo serviço normalmente
+#### Scenario: Tentativa de exclusão
+- **WHEN** uma pessoa tenta excluir fisicamente um serviço por meio da interface ou API desta capability
+- **THEN** a operação de exclusão não está disponível e o registro permanece inalterado
 
 ### Requirement: Consulta pública lista serviços ativos da empresa
-O sistema SHALL permitir que qualquer pessoa, sem autenticação, consulte os serviços ativos de uma empresa pelo identificador público, retornando somente nome, duração e preço, ordenados por nome. Serviços inativos, identificadores internos e dados de outras empresas SHALL ficar fora da resposta.
+O sistema SHALL permitir consulta sem autenticação dos serviços ativos de uma empresa localizada pelo identificador público, sem retornar ids internos, serviços inativos ou dados de outras empresas.
 
 #### Scenario: Empresa com serviços ativos e inativos
-- **WHEN** uma pessoa consulta os serviços de uma empresa que tem serviços ativos e inativos
+- **WHEN** uma pessoa consulta uma empresa que possui serviços ativos e inativos
 - **THEN** o sistema retorna apenas os ativos, com nome, duração e preço, em ordem alfabética
 
 #### Scenario: Empresa sem serviços ativos
@@ -123,39 +127,39 @@ O sistema SHALL permitir que qualquer pessoa, sem autenticação, consulte os se
 - **THEN** o sistema retorna uma lista vazia
 
 #### Scenario: Identificador desconhecido
-- **WHEN** uma pessoa consulta os serviços de um identificador não associado a empresa
-- **THEN** o sistema responde como não encontrado, sem retornar serviços
+- **WHEN** uma pessoa consulta serviços para um identificador sem empresa correspondente
+- **THEN** o sistema responde como não encontrado sem retornar serviços
 
 ### Requirement: Página pública apresenta os serviços ativos
-A interface SHALL exibir na página `/agendar/{identificador}` os serviços ativos da empresa com nome, duração em formato legível (por exemplo, "45 min" ou "1h 30min") e preço em reais (por exemplo, "R$ 45,00"), sem exigir login e sem mostrar informações administrativas.
+A interface SHALL exibir na rota `/agendar/{identificador}` os serviços ativos com nome, duração legível e preço em reais, sem exigir login nem oferecer agendamento nesta capability.
 
 #### Scenario: Serviços exibidos
 - **WHEN** uma pessoa abre a página pública de uma empresa com serviços ativos
-- **THEN** a interface lista nome, duração e preço de cada serviço ativo, legíveis no celular
+- **THEN** a interface lista os serviços com duração legível e preço em reais com duas casas decimais
 
 #### Scenario: Nenhum serviço disponível
 - **WHEN** a empresa não possui serviços ativos
-- **THEN** a interface informa "Esta empresa ainda não tem serviços disponíveis."
+- **THEN** a interface informa que a empresa ainda não tem serviços disponíveis
 
 #### Scenario: Falha ao carregar serviços
 - **WHEN** a consulta dos serviços falha por erro de rede ou do servidor
-- **THEN** a interface mantém os dados da empresa e informa que não foi possível carregar os serviços
+- **THEN** a interface mantém os dados públicos da empresa e informa que não foi possível carregar os serviços
 
 ### Requirement: Área administrativa de serviços é protegida
-A interface SHALL oferecer à administradora uma área de serviços com listagem, formulário de cadastro e edição, ações de desativar, reativar e excluir, e feedback de carregamento, sucesso e erro. Somente uma administradora autenticada SHALL acessar essa área.
+A interface SHALL oferecer à administradora uma área protegida para listar, cadastrar, editar e ativar ou desativar os serviços da própria empresa, com estados de carregamento, sucesso, vazio e erro.
 
-#### Scenario: Acesso sem sessão de administradora
-- **WHEN** uma pessoa sem sessão, ou com sessão de cliente, abre a área administrativa
-- **THEN** a interface a leva ao login de administradora sem exibir serviços
+#### Scenario: Acesso sem sessão administrativa
+- **WHEN** uma pessoa sem sessão ou com sessão de cliente abre a área administrativa de serviços
+- **THEN** a interface a encaminha ao login de administradora sem exibir dados de serviços
 
 #### Scenario: Primeira visita sem serviços
-- **WHEN** a administradora abre a área de serviços e a empresa não possui serviços
+- **WHEN** uma administradora abre a área de serviços de uma empresa sem serviços cadastrados
 - **THEN** a interface mostra um estado vazio com a ação de cadastrar o primeiro serviço
 
-#### Scenario: Erro de validação no formulário
-- **WHEN** a administradora envia o formulário com dado inválido ou nome repetido
-- **THEN** a interface mostra a mensagem junto ao campo correspondente e preserva os valores digitados
+#### Scenario: Erro de validação
+- **WHEN** a administradora envia dados inválidos ou um nome já utilizado pela empresa
+- **THEN** a interface mostra o erro junto ao campo correspondente e preserva os valores digitados
 
 #### Scenario: Situação visível na listagem
 - **WHEN** a empresa possui serviços ativos e inativos
-- **THEN** a listagem administrativa diferencia visualmente os inativos e oferece a ação de reativá-los
+- **THEN** a interface diferencia os inativos e oferece a ação de reativá-los

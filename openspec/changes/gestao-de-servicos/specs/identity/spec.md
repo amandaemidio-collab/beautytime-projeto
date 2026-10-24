@@ -10,12 +10,12 @@ O sistema SHALL autenticar clientes e administradores com e-mail e senha e SHALL
 - **THEN** o sistema autentica a conta e retorna uma sessão utilizável com sua identidade e tipo
 
 #### Scenario: Boas-vindas após login
-- **WHEN** uma cliente conclui o login ou o cadastro com sucesso
+- **WHEN** uma cliente conclui o login ou cadastro com sucesso
 - **THEN** a interface a leva a uma página simples de boas-vindas, sem funcionalidades de agendamento
 
-#### Scenario: Administradora entra na área administrativa
-- **WHEN** uma administradora conclui o login ou o cadastro com sucesso
-- **THEN** a interface a leva à área administrativa de serviços da própria empresa, e não à página de boas-vindas
+#### Scenario: Administradora entra na área de serviços
+- **WHEN** uma administradora conclui o login ou cadastro com sucesso
+- **THEN** a interface a leva à área administrativa de serviços da própria empresa
 
 #### Scenario: Credenciais inválidas
 - **WHEN** uma conta envia e-mail inexistente, senha incorreta ou credenciais de tipo incompatível
