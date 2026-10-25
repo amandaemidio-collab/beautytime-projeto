@@ -21,15 +21,19 @@ O sistema SHALL oferecer à administradora autenticada um painel inicial da pró
 - **THEN** a interface não apresenta contagens, métricas ou indicadores numéricos
 
 ### Requirement: Painel oferece navegação administrativa
-O sistema SHALL apresentar no painel os itens Serviços, Profissionais, Horários e Agenda, encaminhando somente para áreas disponíveis.
+O sistema SHALL apresentar no painel os itens Serviços, Profissionais, Horários e Agenda, encaminhando para as respectivas áreas administrativas disponíveis.
 
 #### Scenario: Áreas disponíveis
 - **WHEN** a administradora seleciona Serviços ou Profissionais
 - **THEN** a interface abre a área administrativa correspondente
 
 #### Scenario: Horários e Agenda ainda não disponíveis
-- **WHEN** as changes de Horários ou Agenda ainda não estão disponíveis
-- **THEN** o painel exibe cada item com o rótulo “Em breve” e não abre uma funcionalidade inexistente
+- **WHEN** a administradora seleciona Horários ou Agenda após esta mudança estar disponível
+- **THEN** a interface abre a área administrativa correspondente, sem exibir “Em breve”
+
+#### Scenario: Áreas protegidas
+- **WHEN** uma cliente ou pessoa sem sessão válida tenta abrir Horários ou Agenda
+- **THEN** a interface encaminha a pessoa ao login de administradora sem exibir dados administrativos
 
 ### Requirement: Administradora pode copiar o link público do salão
 O sistema SHALL mostrar à administradora o link público completo da própria empresa e permitir copiá-lo para a área de transferência.

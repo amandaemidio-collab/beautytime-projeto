@@ -56,11 +56,11 @@ O sistema SHALL autenticar clientes e administradores com e-mail e senha e SHALL
 
 #### Scenario: Boas-vindas após login
 - **WHEN** uma cliente ou administradora conclui o login com sucesso
-- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à página `/boas-vindas`
+- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à área `/meus-agendamentos`
 
 #### Scenario: Destino após cadastro
 - **WHEN** uma cliente ou administradora conclui o cadastro com sucesso
-- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à página `/boas-vindas`
+- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à área `/meus-agendamentos`
 
 #### Scenario: Credenciais inválidas
 - **WHEN** uma conta envia e-mail inexistente, senha incorreta ou credenciais de tipo incompatível
