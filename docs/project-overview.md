@@ -4,7 +4,7 @@
 
 O BeautyTime é um serviço web de agendamento online para salões de beleza, barbearias e estabelecimentos semelhantes. Cada estabelecimento cadastra sua empresa, seus profissionais e seus serviços, e divulga um link próprio para as clientes. Pelo link, que abre no navegador do celular, a cliente faz login e agenda um horário escolhendo o serviço, o profissional e o horário disponível.
 
-O sistema é multiempresa: uma única instalação atende vários estabelecimentos, e cada um enxerga e gerencia apenas os próprios dados.
+O sistema é multiempresa: uma única instalação atende vários estabelecimentos, e cada um enxerga e gerencia apenas os próprios dados. Clientes também podem encontrar salões parceiros em uma lista pública de empresas ativas.
 
 ## 2. Problema
 
@@ -46,23 +46,31 @@ Muitos salões e barbearias ainda organizam a agenda por telefone, WhatsApp ou c
 **Para a cliente**
 - Acessar o estabelecimento pelo link.
 - Criar conta e fazer login.
-- Escolher serviço, profissional e horário disponível.
+- Escolher serviço, um profissional ou a opção “sem preferência”, e um horário disponível.
 - Ver seus agendamentos futuros e passados.
-- Cancelar um agendamento.
+- Cancelar um agendamento; até 8 horas antes do horário não há custo. Depois desse prazo, é exibido um aviso de taxa informativa de R$ 5,00 e o cancelamento fica registrado como tardio.
+- Encontrar salões parceiros por uma lista pública de empresas ativas.
+- Consultar a política de cancelamento também após a confirmação do agendamento.
 
 **Para o administrador**
 - Cadastrar a empresa e obter o link de agendamento.
+- Acessar um painel inicial com os menus Serviços, Profissionais, Horários e Agenda, além do link público do salão e da opção de copiá-lo.
 - Cadastrar, editar e desativar profissionais.
 - Cadastrar, editar e desativar serviços, com duração e preço.
-- Definir os horários de atendimento de cada profissional.
+- Definir livremente um ou mais períodos de atendimento por dia para cada profissional, sem limite de horas diárias.
 - Ver a agenda da empresa por dia e por profissional.
+- Ver os cancelamentos tardios.
 
 ## 7. Requisitos e restrições importantes
 
 - A interface deve funcionar bem no navegador do celular, pois a maioria das clientes acessará pelo link no smartphone.
 - Um profissional não pode ter dois agendamentos sobrepostos.
 - Só podem ser oferecidos horários dentro do horário de atendimento do profissional.
+- Quando a cliente escolhe “sem preferência”, o sistema atribui qualquer profissional livre que realize o serviço.
+- A disponibilidade considera os períodos de atendimento e exclui profissionais ocupados. Um dia sem horário livre para nenhum profissional fica indisponível no calendário.
+- Os horários de início são oferecidos em intervalos de 15 minutos. O agendamento deve ocorrer com no mínimo 1 hora e no máximo 30 dias de antecedência.
 - A duração do serviço escolhido define quanto tempo o agendamento ocupa na agenda.
+- O cancelamento é gratuito até 8 horas antes do início. Após esse limite, o aviso informa a taxa de R$ 5,00 e o cancelamento é registrado como tardio para consulta da administradora. A taxa é apenas informativa; o aplicativo não processa pagamentos.
 - Os dados de uma empresa nunca podem ser vistos ou alterados por outra empresa.
 
 ## 8. Arquitetura tecnológica

@@ -32,10 +32,12 @@ Representa um estabelecimento que usa o BeautyTime: salão de beleza, barbearia,
 ### Relacionamentos
 - Possui um ou mais administradores.
 - Possui vários profissionais, serviços e agendamentos.
+- Pode ser encontrada por clientes na lista pública de empresas ativas.
 
 ### Regras estruturais
 - O identificador do link é único entre todas as empresas e respeita o formato especificado acima.
 - Todos os profissionais, serviços e agendamentos pertencem a exatamente uma empresa.
+- Somente empresas ativas aparecem na lista pública de salões parceiros.
 
 ---
 
@@ -74,6 +76,7 @@ Pessoa que agenda serviços.
 - A conta da cliente é da plataforma, não de uma empresa: a mesma cliente pode agendar em empresas diferentes com a mesma conta.
 - Nunca possui associação com uma empresa.
 - Só vê e cancela os próprios agendamentos.
+- Sua área permite consultar agendamentos próximos e passados, cancelá-los e encontrar empresas ativas na lista pública de salões parceiros.
 
 ---
 
@@ -130,11 +133,14 @@ Período em que um profissional atende, por dia da semana. Exemplo: terça-feira
 - hora de início;
 - hora de término.
 
+Um profissional pode ter vários períodos no mesmo dia, por exemplo, das 9h às 12h e das 14h às 18h.
+
 ### Relacionamentos
 - Pertence a um profissional.
 
 ### Regras estruturais
-- Só é possível agendar dentro desses períodos.
+- A empresa define livremente os períodos de atendimento; não há limite de horas diárias.
+- Só é possível agendar dentro de um desses períodos.
 
 ---
 
@@ -145,7 +151,8 @@ Reserva de um horário de um profissional para realizar um serviço para uma cli
 ### Principais informações
 - data e hora de início;
 - data e hora de término (calculada pela duração do serviço);
-- situação: agendado, cancelado ou concluído.
+- situação: agendado, cancelado ou concluído;
+- indicação de cancelamento tardio, quando aplicável.
 
 ### Relacionamentos
 - Pertence a uma empresa.
@@ -153,7 +160,12 @@ Reserva de um horário de um profissional para realizar um serviço para uma cli
 
 ### Regras estruturais
 - O profissional deve realizar o serviço escolhido e pertencer à mesma empresa.
-- O horário deve estar dentro do horário de atendimento do profissional.
+- A cliente pode escolher um profissional ou “sem preferência”. Nesse segundo caso, o sistema seleciona qualquer profissional livre da empresa que realize o serviço; o agendamento fica associado ao profissional selecionado.
+- O horário deve estar dentro de um dos períodos de atendimento do profissional.
 - Um profissional não pode ter dois agendamentos ativos com horários sobrepostos.
 - Agendamentos cancelados liberam o horário.
-- Não é possível agendar no passado.
+- A disponibilidade exclui os profissionais ocupados. Se nenhum profissional tiver horário livre em um dia, esse dia fica indisponível no calendário.
+- Os horários de início são oferecidos em intervalos de 15 minutos.
+- A cliente só pode agendar com no mínimo 1 hora e no máximo 30 dias de antecedência.
+- A cliente pode cancelar sem custo até 8 horas antes do horário agendado. Depois desse limite, é exibido um aviso de taxa de R$ 5,00, e o cancelamento é marcado como tardio e fica visível para a administradora.
+- A taxa de cancelamento tardio é apenas informativa: o aplicativo não processa pagamentos nem cobra o valor. A política de cancelamento também é exibida após a confirmação do agendamento.
