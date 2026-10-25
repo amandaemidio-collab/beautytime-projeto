@@ -86,7 +86,8 @@ Pessoa que realiza os serviços em uma empresa.
 
 ### Principais informações
 - nome;
-- situação (ativo ou inativo).
+- situação (ativo ou inativo);
+- data de criação.
 
 ### Relacionamentos
 - Pertence a uma empresa.
@@ -96,6 +97,10 @@ Pessoa que realiza os serviços em uma empresa.
 
 ### Regras estruturais
 - Um profissional inativo não aparece para novos agendamentos.
+- Cada profissional pertence a exatamente uma empresa; a empresa é determinada pela sessão da administradora ao cadastrar ou editar.
+- O profissional realiza um ou mais serviços da mesma empresa. O vínculo entre profissional e serviço é persistido separadamente e não pode se repetir para o mesmo par.
+- Só serviços ativos da empresa podem ser escolhidos em cadastro ou em uma nova seleção na edição. Se a edição não enviar uma nova seleção, os vínculos existentes são preservados.
+- Se um serviço vinculado for desativado, o vínculo é preservado, mas não é válido para novos agendamentos enquanto o serviço estiver inativo. Ao reativar o serviço, o vínculo volta a ser válido.
 - No escopo inicial, não possui login.
 
 ---
@@ -121,6 +126,7 @@ Algo que a empresa oferece, como corte, escova, barba ou manicure.
 - A duração define quanto tempo o agendamento ocupa na agenda do profissional.
 - Um serviço inativo não aparece para novos agendamentos.
 - A desativação preserva o registro e seus dados; serviços não são excluídos fisicamente.
+- A desativação não remove associações com profissionais; essas associações voltam a ser válidas quando o serviço é reativado.
 
 ---
 

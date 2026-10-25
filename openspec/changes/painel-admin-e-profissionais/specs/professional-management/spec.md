@@ -36,6 +36,18 @@ O sistema SHALL aceitar em cadastro ou edição somente serviços ativos pertenc
 - **WHEN** a administradora tenta associar ao profissional um serviço inativo ou pertencente a outra empresa
 - **THEN** o sistema rejeita a operação sem criar ou alterar vínculos
 
+#### Scenario: Serviço vinculado é desativado
+- **WHEN** um serviço associado a um profissional é desativado
+- **THEN** o vínculo permanece armazenado, mas não conta como serviço válido enquanto o serviço estiver inativo
+
+#### Scenario: Serviço vinculado é reativado
+- **WHEN** um serviço associado anteriormente é reativado
+- **THEN** o vínculo preservado volta a contar como válido sem precisar ser recriado
+
+#### Scenario: Edição apresenta somente serviços ativos para seleção
+- **WHEN** a administradora edita os serviços de um profissional
+- **THEN** somente serviços ativos da própria empresa podem ser escolhidos; uma edição que não envia uma nova seleção preserva os vínculos existentes, inclusive os de serviços inativos
+
 ### Requirement: Administradora consulta profissionais ativos e inativos
 O sistema SHALL listar para a administradora somente os profissionais da empresa associada à sessão, incluindo os ativos e inativos e os serviços associados.
 

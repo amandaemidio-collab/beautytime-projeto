@@ -41,9 +41,9 @@ Montar a URL pública completa com a origem atual do aplicativo e `/agendar/{ide
 
 Adicionar uma tabela `professional` com empresa obrigatória, nome, situação e data de criação, e uma relação muitos-para-muitos com `service`, com unicidade do par profissional-serviço. O nome não recebe uma regra de unicidade, pois essa decisão não foi definida pelo grupo.
 
-Os endpoints administrativos usam a função existente `Catalogo/authorize_admin`. A listagem retorna somente profissionais da empresa da sessão, incluindo situação e serviços associados, e fornece a lista de serviços ativos da mesma empresa para os formulários. Cadastro e edição validam no backend todos os IDs enviados: deve haver pelo menos um, e todos devem apontar a serviços ativos da empresa autenticada. A empresa nunca é escolhida pela requisição.
+Os endpoints administrativos usam a função existente `Catalogo/authorize_admin`. A listagem retorna somente profissionais da empresa da sessão, incluindo situação e serviços associados, e fornece a lista de serviços ativos da mesma empresa para os formulários. Cadastro valida no backend todos os IDs enviados: deve haver pelo menos um, e todos devem apontar a serviços ativos da empresa autenticada. Na edição, a lista de serviços é opcional: se não for enviada, os vínculos existentes são preservados; se for enviada, deve conter pelo menos um serviço ativo da empresa autenticada. A interface de edição só permite escolher serviços ativos. A empresa nunca é escolhida pela requisição.
 
-Separar operações em consulta/listagem e cadastro, edição e alteração de situação; não criar endpoint DELETE. As atualizações de profissional e de suas associações devem evitar estado parcial: validar todos os serviços e o profissional da empresa antes de persistir as alterações. Serviços já associados que depois sejam desativados permanecem relacionados e podem ser identificados como inativos na interface, mas não podem ser selecionados em novos cadastros ou alterações.
+Separar operações em consulta/listagem e cadastro, edição e alteração de situação; não criar endpoint DELETE. As atualizações de profissional e de suas associações devem evitar estado parcial: validar todos os serviços e o profissional da empresa antes de persistir as alterações e usar transação nas operações relacionadas. Serviços já associados que depois sejam desativados permanecem relacionados e são identificados como inativos na listagem, mas não contam como serviço válido enquanto estiverem inativos. A reativação restaura a validade do vínculo preservado. Um vínculo inativo só é removido se a administradora enviar uma nova seleção de serviços ativos na edição.
 
 **Alternativas consideradas:** armazenar IDs de serviços em texto ou como lista dentro do profissional enfraqueceria integridade e filtragem; uma tabela de relação representa o vínculo e permite validar cada serviço contra a empresa. Confiar apenas no frontend deixaria abertas associações forjadas.
 
@@ -64,7 +64,7 @@ Cada tarefa descreve chamadas HTTP reais aos endpoints e verificações manuais 
 - [A relação de um profissional com vários serviços pode ficar parcialmente gravada se uma operação falhar] → Validar a associação inteira antes de alterar os registros e usar a estratégia transacional ou compensatória suportada pelo Xano, validada na implementação.
 - [A permissão de área de transferência pode ser negada pelo navegador] → Manter o endereço visível e comunicar claramente a falha.
 - [O frontend pode ser aberto diretamente por uma sessão de cliente] → Validar papel em todas as rotas administrativas e manter a autorização de cada operação no backend.
-- [Serviços vinculados podem ser desativados após associação] → Preservar o vínculo existente e impedir que serviço inativo seja enviado em novos cadastros ou edições.
+- [Serviços vinculados podem ser desativados após associação] → Preservar o vínculo, identificar o serviço inativo na listagem e não contá-lo como válido até a reativação; permitir escolhas apenas entre serviços ativos na edição.
 
 ## Migration Plan
 
