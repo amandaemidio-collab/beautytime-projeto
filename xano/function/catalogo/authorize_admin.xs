@@ -10,18 +10,18 @@ function "Catalogo/authorize_admin" {
       field_value = $input.authenticated_user_id
       output = ["id", "role", "account_id"]
     } as $user
-
+  
     precondition ($user != null && $user.role == "admin" && $user.account_id != null) {
       error_type = "accessdenied"
       error = "An authenticated company administrator is required."
     }
-
+  
     db.get account {
       field_name = "id"
       field_value = $user.account_id
       output = ["id"]
     } as $account
-
+  
     precondition ($account != null) {
       error_type = "accessdenied"
       error = "The authenticated administrator has no valid company."
