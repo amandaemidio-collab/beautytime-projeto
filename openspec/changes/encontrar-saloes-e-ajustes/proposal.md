@@ -21,7 +21,7 @@ Hoje a cliente só chega a um salão pelo link divulgado pela empresa: na área 
 - Link para "Encontrar salões" na página inicial ou em outras telas além de `/meus-agendamentos`.
 - Preenchimento automático de serviço ou profissional ao usar "Agendar de novo": o fluxo começa do primeiro passo.
 - Mudanças nas regras de disponibilidade, reserva ou cancelamento.
-- Correção dos usos de dicionário responsivo em propriedades CSS fora dos estilos compartilhados de página, cartão e painel (por exemplo, larguras de botões e o padding interno do cartão de serviço da página pública).
+- Correção dos usos de dicionário responsivo em propriedades CSS fora dos estilos compartilhados de página, cartão e painel e do cartão de serviço da página pública (por exemplo, larguras de botões).
 - Infraestrutura de testes automatizados.
 
 ## Capabilities
@@ -38,5 +38,5 @@ Hoje a cliente só chega a um salão pelo link divulgado pela empresa: na área 
 
 - **Backend (Xano):** uma nova rota pública de leitura no grupo `Members & Accounts`, sem novas tabelas ou campos. Requer dry-run e confirmação antes do push.
 - **Frontend (Reflex):** nova página pública em `frontend/frontend/frontend.py`, novos botões na área da cliente e ajuste de layout da página `/agendar/{identificador}`. Sem novas dependências. A causa das margens está nos estilos compartilhados de página, cartão e painel; a correção deles muda as margens e o espaçamento interno de todas as telas, inclusive as administrativas.
-- **Documentação:** `docs/domain-model.md` (definição de empresa ativa na lista pública).
+- **Documentação:** `docs/domain-model.md` e `docs/project-overview.md` (definição das empresas da lista pública como as que aceitam reservas).
 - **Privacidade:** a lista expõe somente nome e identificador público, dados que já são públicos pelo link de cada salão.

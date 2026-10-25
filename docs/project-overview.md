@@ -4,7 +4,7 @@
 
 O BeautyTime é um serviço web de agendamento online para salões de beleza, barbearias e estabelecimentos semelhantes. Cada estabelecimento cadastra sua empresa, seus profissionais e seus serviços, e divulga um link próprio para as clientes. Pelo link, que abre no navegador do celular, a cliente faz login e agenda um horário escolhendo o serviço, o profissional e o horário disponível.
 
-O sistema é multiempresa: uma única instalação atende vários estabelecimentos, e cada um enxerga e gerencia apenas os próprios dados. Clientes também podem encontrar salões parceiros em uma lista pública de empresas ativas.
+O sistema é multiempresa: uma única instalação atende vários estabelecimentos, e cada um enxerga e gerencia apenas os próprios dados. Clientes também podem encontrar salões parceiros em uma lista pública das empresas que aceitam reservas, isto é, que têm ao menos um serviço ativo vinculado a um profissional ativo.
 
 ## 2. Problema
 
@@ -49,7 +49,7 @@ Muitos salões e barbearias ainda organizam a agenda por telefone, WhatsApp ou c
 - Escolher serviço, um profissional ou a opção “sem preferência”, e um horário disponível.
 - Ver seus agendamentos futuros e passados.
 - Cancelar um agendamento; até 8 horas antes do horário não há custo. Depois desse prazo, é exibido um aviso de taxa informativa de R$ 5,00 e o cancelamento fica registrado como tardio.
-- Encontrar salões parceiros por uma lista pública de empresas ativas.
+- Encontrar salões parceiros por uma lista pública das empresas que aceitam reservas (ao menos um serviço ativo vinculado a um profissional ativo), que mostra apenas o nome e o link de agendamento de cada uma.
 - Consultar a política de cancelamento também após a confirmação do agendamento.
 
 **Para o administrador**

@@ -28,7 +28,7 @@ Estado atual relevante:
 
 ### Rota pública `companies/public` no grupo `Members & Accounts`
 
-Criar `GET companies/public`, sem autenticação e sem entradas, que consulta `professional_service` com junção a `service` e `professional`, filtrando `service.is_active`, `professional.is_active` e `service.account_id == professional.account_id`. Do resultado, obter os `account_id` distintos, buscar as empresas e responder somente `{name, public_identifier}` ordenado por nome. A sintaxe de junção, distinct e ordenação deve ser confirmada no Xano Developer MCP antes de escrever o XanoScript.
+Criar `GET companies/public`, sem autenticação e sem entradas, com uma única consulta a `professional_service` que faz junção direta com `service`, `professional` e `account` (esta pelo `service.account_id`), filtrando `service.is_active`, `professional.is_active` e `service.account_id == professional.account_id`. A consulta já traz, em cada linha, o id, o nome e o identificador público da empresa. Em seguida, a rota obtém os ids de empresa distintos (`map` + `unique`), monta um item `{name, public_identifier}` por empresa a partir da primeira linha correspondente e responde a lista ordenada por nome sem diferenciar maiúsculas (`sort` com `itext`). Não há uma segunda consulta à tabela `account`. A sintaxe de junção, dos filtros de lista e da ordenação foi confirmada no Xano Developer MCP antes de escrever o XanoScript.
 
 **Alternativas consideradas:** colocar a rota no grupo `Agenda` (as regras de elegibilidade estão lá, mas a consulta pública de empresa já vive em `Members & Accounts`); adicionar `is_active` em `account` (descartado pela responsável, exigiria ainda um controle de desativação); filtrar no frontend a partir de outra consulta (violaria a regra de manter regras de negócio no backend).
 
@@ -48,7 +48,7 @@ Ajuste feito na implementação: `load_public_company` retoma as escolhas sempre
 
 Causa confirmada na implementação, medindo o CSS gerado com emulação de celular: os estilos compartilhados `PAGE_STYLE`, `CARD_STYLE` e `_panel` definiam `padding` com dicionário responsivo (`{"initial": ..., "md": ...}`). No Reflex 0.10 esse formato só funciona em props do Radix (como `direction` e `columns`); em propriedades CSS ele gera uma regra inválida e o valor é ignorado. Por isso nenhuma tela tinha margem lateral, e não só a página pública.
 
-Decisão da responsável pelo projeto: corrigir somente os três estilos compartilhados, trocando o dicionário por `rx.breakpoints(...)`. Isso devolve as margens da página e o espaçamento interno de cartões e painéis em todas as telas. A estrutura de `public_company_page` não precisou mudar. Os demais usos de dicionário responsivo em propriedades CSS (larguras de botões e paddings de cartões específicos, como o cartão de serviço da página pública) ficam para outra change.
+Decisão da responsável pelo projeto: corrigir somente os três estilos compartilhados, trocando o dicionário por `rx.breakpoints(...)`. Isso devolve as margens da página e o espaçamento interno de cartões e painéis em todas as telas. A estrutura de `public_company_page` não precisou mudar. Num ajuste final pedido pela responsável, o cartão de serviço da página pública passou a usar `TILE_STYLE`, um estilo novo em `theme.py` com o padding em `rx.breakpoints`. Os demais usos de dicionário responsivo em propriedades CSS (como larguras de botões) ficam para outra change.
 
 ## Riscos / Trade-offs
 

@@ -18,6 +18,7 @@ from frontend.theme import (
     FONT_STYLESHEET,
     GLOBAL_STYLES,
     SHADOWS,
+    TILE_STYLE,
 )
 
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
@@ -4312,16 +4313,12 @@ def _public_service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
             spacing="3",
             width="100%",
         ),
-        width="100%",
-        padding={"initial": "16px", "sm": "20px"},
         border=rx.cond(
             selected,
             f"2px solid {COLORS['accent']}",
             f"1px solid {COLORS['border']}",
         ),
-        border_radius="16px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        style=TILE_STYLE,
     )
 
 

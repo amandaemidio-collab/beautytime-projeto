@@ -39,7 +39,13 @@ Limitação: o instante exato de 8 h não pode ser atingido por HTTP. O limite f
 
 - Verificação pelo código (`client/appointments/{appointment_id}/cancel`, PATCH): a precondição `status == "agendado" && starts_at > now` é avaliada antes da regra de cancelamento tardio e da confirmação da taxa; um agendamento cujo início já passou é recusado com `appointment_cannot_be_cancelled`, mesmo com `confirm_late_cancellation = true`. Resultado: ok.
 - Preparação por HTTP (25/10/2026, 18:29): cliente fictícia nova e reserva de teste id 21 (Manicure, `studio-r4a-959816`, profissional 21) para hoje às 20:00. Antes do início, o cancelamento sem confirmação retorna `late_cancellation_confirmation_required` (400), ou seja, a reserva ainda pode ser cancelada.
-- Conferência final pendente: às 20:00 (horário de Brasília), tentar cancelar a reserva 21 com e sem confirmação da taxa. Esperado: 400 `appointment_cannot_be_cancelled` nos dois casos, e a reserva continua `agendado` na listagem da cliente.
+- Conferência final por HTTP, executada em 25/10/2026 às 20:00:39 (horário de Brasília), 39 segundos após o início da reserva 21:
+
+| Verificação | Resultado |
+|---|---|
+| Cancelar com confirmação da taxa (`confirm_late_cancellation = true`) → 400 `appointment_cannot_be_cancelled` | ok |
+| Cancelar sem confirmação → 400 `appointment_cannot_be_cancelled` | ok |
+| Listagem da cliente mostra a reserva 21 ainda `agendado`, sem marcação de cancelamento tardio | ok |
 
 ## 5.2 — Verificação manual no navegador
 
@@ -59,7 +65,7 @@ Feita pela responsável pelo projeto em 25/10/2026, em desktop e celular. Todos 
 | Proteção das rotas administrativas | ok |
 | Fluxos antigos de login e cadastro | ok |
 
-O cancelamento de um agendamento criado hoje cujo início já passou é a conferência final por HTTP às 20:00 (seção 2.3).
+O cancelamento de um agendamento criado hoje cujo início já passou foi conferido por HTTP às 20:00 (seção 2.3): recusado, como esperado.
 
 ## 5.3 — Publicação
 

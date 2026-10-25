@@ -38,6 +38,16 @@ GLOBAL_STYLES = {
     rx.link: {"color": COLORS["accent"]},
 }
 
+# Inner card for list items (e.g. each service on the public booking page).
+# Responsive CSS values must use rx.breakpoints; plain dicts are ignored.
+TILE_STYLE = {
+    "width": "100%",
+    "padding": rx.breakpoints(initial="16px", sm="20px"),
+    "border_radius": "16px",
+    "background_color": COLORS["surface"],
+    "box_shadow": SHADOWS["tile"],
+}
+
 FORM_FIELD_STYLE = {
     "height": "52px",
     "border": f"1px solid {COLORS['border']}",

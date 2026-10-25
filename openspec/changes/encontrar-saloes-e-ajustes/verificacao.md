@@ -33,6 +33,24 @@ Feitas em 25/10/2026 com `reflex compile --dry` (44 páginas, sem erro), renderi
 | `/agendar/{identificador}`, `/saloes`, `/clientes/login` e “Empresa não encontrada” sem elemento fora da tela e sem rolagem horizontal, no celular e no desktop | ok |
 | Texto introdutório da página pública: “Escolha o serviço, o profissional, o dia e o horário para fazer seu agendamento.”; nenhum “em breve” | ok |
 
-Pendência conhecida (fora do escopo, por decisão da responsável): o cartão de serviço da página pública e outros elementos com dicionário responsivo próprio continuam sem o espaçamento interno previsto.
+## Ajustes finais
 
-As etapas interativas do fluxo (profissional, dias, horários, resumo, confirmação), a área da cliente com sessão e as telas administrativas dependem da verificação manual no navegador (tarefas 2.1 a 5.1).
+- `docs/project-overview.md` descreve a lista pública de salões como as empresas que aceitam reservas, igual ao `docs/domain-model.md`.
+- Cartão de serviço da página pública: espaçamento interno aplicado com o novo `TILE_STYLE` de `theme.py` (padding com `rx.breakpoints`: 16px no celular, 20px a partir de 48em). Conferido na instância isolada, em 390×844 e 1280×900: texto e botão afastados da borda, borda de seleção mantida, sem rolagem horizontal.
+- Os demais usos de dicionário responsivo em propriedades CSS (por exemplo, larguras de botões) continuam fora do escopo.
+
+## 2.1 a 5.1 — Verificação manual no navegador
+
+Feita pela responsável pelo projeto em 25/10/2026, em desktop e celular. Todos os cenários passaram:
+
+| Verificação | Resultado |
+|---|---|
+| `/saloes` com a lista e o botão “Agendar” | ok |
+| “Novo agendamento” em `/meus-agendamentos` | ok |
+| “Agendar de novo” em `/meus-agendamentos` | ok |
+| Margens e texto novo na página pública | ok |
+| Margens nas demais telas | ok |
+| Agendamento com login no meio do fluxo | ok |
+| Cancelamento | ok |
+
+O espaçamento interno do cartão de serviço foi aplicado depois dessa verificação e conferido apenas pelas capturas da instância isolada.
