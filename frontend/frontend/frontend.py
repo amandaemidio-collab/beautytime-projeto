@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlencode
 
 import reflex as rx
 
-from frontend.api_client import request_json
+from frontend.api_client import request_json, request_json_list
 from frontend.api_config import api_url
 from frontend.theme import (
     COLORS,
@@ -28,6 +28,10 @@ def _duration_label(minutes: int) -> str:
     if not remainder:
         return f"{hours}h"
     return f"{hours}h {remainder}min"
+
+
+def _price_label(price_cents: int) -> str:
+    return f"R$ {price_cents // 100},{price_cents % 100:02d}"
 
 
 DURATION_OPTIONS = [
@@ -239,6 +243,9 @@ class State(rx.State):
     public_company_identifier: str = ""
     public_company_message: str = ""
     public_company_found: bool = False
+    public_service_items: list[dict[str, Any]] = []
+    public_services_loading: bool = False
+    public_services_error: str = ""
     service_items: list[dict[str, Any]] = []
     services_loading: bool = False
     services_error: str = ""
@@ -492,21 +499,12 @@ class State(rx.State):
             if not isinstance(item, dict):
                 continue
             duration = int(item["duration_minutes"])
-            hours, minutes = divmod(duration, 60)
-            if hours and minutes:
-                duration_display = f"{hours}h {minutes}min"
-            elif hours:
-                duration_display = f"{hours}h"
-            else:
-                duration_display = f"{minutes} min"
             price_cents = int(item["price_cents"])
             self.service_items.append(
                 {
                     **item,
-                    "duration_display": duration_display,
-                    "price_display": (
-                        f"R$ {price_cents // 100},{price_cents % 100:02d}"
-                    ),
+                    "duration_display": _duration_label(duration),
+                    "price_display": _price_label(price_cents),
                 }
             )
         self.services_error = ""
@@ -715,6 +713,9 @@ class State(rx.State):
         self.public_company_identifier = ""
         self.public_company_found = False
         self.public_company_message = ""
+        self.public_service_items = []
+        self.public_services_loading = False
+        self.public_services_error = ""
         if (
             not 3 <= len(identifier) <= 40
             or not IDENTIFIER_PATTERN.fullmatch(identifier)
@@ -743,6 +744,53 @@ class State(rx.State):
         )
         if not self.public_company_found:
             self.public_company_message = "Não foi possível carregar os dados públicos."
+            return
+
+        self.public_services_loading = True
+        return State.load_public_services(identifier)
+
+    @rx.event
+    def load_public_services(self, identifier: str):
+        query = urlencode({"public_identifier": identifier})
+        status, data = request_json_list(
+            "GET",
+            f"{api_url('catalogo', 'public/services')}?{query}",
+        )
+        self.public_services_loading = False
+        if status != 200:
+            self.public_services_error = (
+                "Não foi possível carregar os serviços desta empresa."
+            )
+            return
+        if not isinstance(data, list):
+            self.public_services_error = (
+                "Não foi possível carregar os serviços desta empresa."
+            )
+            return
+
+        for item in data:
+            if (
+                not isinstance(item, dict)
+                or not isinstance(item.get("name"), str)
+                or not isinstance(item.get("duration_minutes"), int)
+                or isinstance(item.get("duration_minutes"), bool)
+                or not isinstance(item.get("price_cents"), int)
+                or isinstance(item.get("price_cents"), bool)
+            ):
+                self.public_service_items = []
+                self.public_services_error = (
+                    "Não foi possível carregar os serviços desta empresa."
+                )
+                return
+            duration = item["duration_minutes"]
+            price_cents = item["price_cents"]
+            self.public_service_items.append(
+                {
+                    "name": item["name"],
+                    "duration_display": _duration_label(duration),
+                    "price_display": _price_label(price_cents),
+                }
+            )
 
 
 def index() -> rx.Component:
@@ -1375,6 +1423,48 @@ def admin_services_page() -> rx.Component:
     )
 
 
+def _public_service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
+    return rx.box(
+        rx.flex(
+            rx.vstack(
+                rx.heading(
+                    service["name"],
+                    size="4",
+                    color=COLORS["text"],
+                    min_width=0,
+                    overflow_wrap="anywhere",
+                ),
+                rx.text(
+                    service["duration_display"],
+                    color=COLORS["muted"],
+                    size="2",
+                ),
+                align="start",
+                spacing="2",
+                flex="1",
+            ),
+            rx.text(
+                service["price_display"],
+                color=COLORS["text"],
+                weight="bold",
+                size="4",
+                white_space="nowrap",
+            ),
+            direction={"initial": "column", "sm": "row"},
+            align={"initial": "start", "sm": "center"},
+            justify="between",
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        padding={"initial": "16px", "sm": "20px"},
+        border=f"1px solid {COLORS['border']}",
+        border_radius="16px",
+        background_color=COLORS["surface"],
+        box_shadow=SHADOWS["tile"],
+    )
+
+
 def public_company_page() -> rx.Component:
     return rx.box(
         rx.vstack(
@@ -1402,8 +1492,46 @@ def public_company_page() -> rx.Component:
                                 "A disponibilidade de agendamentos estará disponível em breve.",
                                 color=COLORS["muted"],
                             ),
+                            rx.divider(color=COLORS["border"]),
+                            rx.heading(
+                                "Serviços",
+                                size="5",
+                                color=COLORS["text"],
+                            ),
+                            rx.cond(
+                                State.public_services_loading,
+                                rx.text(
+                                    "Carregando serviços...",
+                                    color=COLORS["muted"],
+                                ),
+                                rx.cond(
+                                    State.public_services_error != "",
+                                    rx.text(
+                                        State.public_services_error,
+                                        role="alert",
+                                        color=COLORS["error"],
+                                    ),
+                                    rx.cond(
+                                        State.public_service_items.length() == 0,
+                                        rx.text(
+                                            "Esta empresa ainda não tem serviços disponíveis.",
+                                            color=COLORS["muted"],
+                                        ),
+                                        rx.vstack(
+                                            rx.foreach(
+                                                State.public_service_items,
+                                                _public_service_card,
+                                            ),
+                                            align="stretch",
+                                            spacing="3",
+                                            width="100%",
+                                        ),
+                                    ),
+                                ),
+                            ),
                             align="stretch",
                             spacing="4",
+                            width="100%",
                         ),
                         rx.vstack(
                             rx.heading("Empresa", size="7", color=COLORS["text"]),
@@ -1423,7 +1551,7 @@ def public_company_page() -> rx.Component:
             align="center",
             spacing="6",
             width="100%",
-            max_width="520px",
+            max_width="720px",
         ),
         display="flex",
         justify_content="center",

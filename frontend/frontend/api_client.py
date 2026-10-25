@@ -12,6 +12,28 @@ def request_json(
     token: str = "",
 ) -> tuple[int, dict[str, object]]:
     """Send one JSON request and return its HTTP status and decoded object."""
+    status, data = _request_json(method, url, payload, token)
+    if isinstance(data, dict):
+        return status, data
+    return status, {"message": "A API retornou uma resposta inválida."}
+
+
+def request_json_list(
+    method: str,
+    url: str,
+    payload: dict[str, object] | None = None,
+    token: str = "",
+) -> tuple[int, dict[str, object] | list[object]]:
+    """Send one JSON request that may return a JSON array."""
+    return _request_json(method, url, payload, token)
+
+
+def _request_json(
+    method: str,
+    url: str,
+    payload: dict[str, object] | None = None,
+    token: str = "",
+) -> tuple[int, dict[str, object] | list[object]]:
     headers = {"Accept": "application/json"}
     body = None
     if payload is not None:
@@ -40,6 +62,6 @@ def request_json(
     except json.JSONDecodeError:
         return status, {"message": "A API retornou uma resposta inválida."}
 
-    if not isinstance(data, dict):
+    if not isinstance(data, (dict, list)):
         return status, {"message": "A API retornou uma resposta inválida."}
     return status, data
