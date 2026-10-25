@@ -23,6 +23,7 @@ from frontend.theme import (
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 TIME_PATTERN = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d\Z")
 SAO_PAULO = timezone(timedelta(hours=-3), "America/Sao_Paulo")
+WEEKDAY_SHORT = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
 WEEKDAY_OPTIONS = [
     ("1", "Segunda-feira"),
     ("2", "Terça-feira"),
@@ -359,6 +360,9 @@ class State(rx.State):
     booking_date: str = ""
     booking_date_min: str = ""
     booking_date_max: str = ""
+    booking_days: list[dict[str, Any]] = []
+    booking_days_loading: bool = False
+    booking_days_error: str = ""
     booking_slots: list[dict[str, Any]] = []
     booking_slots_loading: bool = False
     booking_slots_error: str = ""
@@ -1700,6 +1704,9 @@ class State(rx.State):
         self.booking_professionals_loading = False
         self.booking_professionals_error = ""
         self.booking_professional_id = ""
+        self.booking_days = []
+        self.booking_days_loading = False
+        self.booking_days_error = ""
         self._clear_booking_date()
 
     def _clear_booking_date(self):
@@ -1752,6 +1759,47 @@ class State(rx.State):
             return False
         self.booking_professional_options = options
         return True
+
+    def _load_booking_days(self) -> bool:
+        """Mark which days of the booking window have at least one free start."""
+        self.booking_days_loading = False
+        self.booking_days_error = ""
+        self.booking_days = []
+        query: dict[str, str] = {"service_id": str(self.booking_service_id)}
+        if self.booking_professional_id != "any":
+            query["professional_id"] = self.booking_professional_id
+        status, data = request_json_list(
+            "GET",
+            api_url("agenda", f"public/{self.booking_identifier}/available_days")
+            + f"?{urlencode(query)}",
+        )
+        if status != 200 or not isinstance(data, list):
+            self.booking_days_error = (
+                _api_error(status, data)
+                if status == 429
+                else "Não foi possível carregar os dias disponíveis."
+            )
+            return False
+        available = {item for item in data if isinstance(item, str)}
+        first_day = date.fromisoformat(self.booking_date_min)
+        days: list[dict[str, Any]] = []
+        for offset in range(BOOKING_WINDOW_DAYS + 1):
+            day = first_day + timedelta(days=offset)
+            days.append(
+                {
+                    "date": day.isoformat(),
+                    "weekday": WEEKDAY_SHORT[day.isoweekday() - 1],
+                    "label": day.strftime("%d/%m"),
+                    "available": day.isoformat() in available,
+                }
+            )
+        self.booking_days = days
+        return True
+
+    def _booking_day_available(self, value: str) -> bool:
+        return any(
+            day["date"] == value and day["available"] for day in self.booking_days
+        )
 
     def _load_booking_slots(self):
         self.booking_slots_loading = False
@@ -1818,7 +1866,15 @@ class State(rx.State):
                     "O profissional escolhido não está mais disponível."
                 )
             return
+        if not self._load_booking_days():
+            return
         if not self.booking_date:
+            return
+        if not self._booking_day_available(self.booking_date):
+            self._clear_booking_date()
+            self.booking_message = (
+                "O dia escolhido não tem mais horários livres. Escolha outro."
+            )
             return
         self._load_booking_slots()
         if selected_slot and not any(
@@ -1858,10 +1914,14 @@ class State(rx.State):
         self.booking_message = ""
         self.booking_professional_id = professional_id
         self._clear_booking_slot()
-        if not self.booking_date:
-            return
-        self.booking_slots_loading = True
+        self.booking_days_loading = True
         yield
+        if not self._load_booking_days():
+            self._clear_booking_date()
+            return
+        if not self._booking_day_available(self.booking_date):
+            self._clear_booking_date()
+            return
         self._load_booking_slots()
 
     @rx.event
@@ -1880,6 +1940,9 @@ class State(rx.State):
             self.booking_slots_error = (
                 "Escolha um dia entre hoje e os próximos 30 dias."
             )
+            return
+        if not self._booking_day_available(selected.isoformat()):
+            self.booking_slots_error = "Este dia não tem horários livres."
             return
         self.booking_date = selected.isoformat()
         self.booking_slots_loading = True
@@ -4150,24 +4213,57 @@ def _booking_professional_step() -> rx.Component:
     )
 
 
+def _booking_day_button(day: rx.Var[dict[str, Any]]) -> rx.Component:
+    selected = State.booking_date == day["date"]
+    return rx.button(
+        rx.vstack(
+            rx.text(day["weekday"], size="1"),
+            rx.text(day["label"], size="2", weight="bold"),
+            spacing="0",
+            align="center",
+        ),
+        on_click=State.set_booking_date(day["date"]),
+        disabled=~day["available"].to(bool),
+        variant=rx.cond(selected, "solid", "outline"),
+        color_scheme=rx.cond(day["available"].to(bool), "ruby", "gray"),
+        text_decoration=rx.cond(day["available"].to(bool), "none", "line-through"),
+        aria_label=rx.cond(
+            day["available"].to(bool),
+            f"{day['weekday']} {day['label']}",
+            f"{day['weekday']} {day['label']} indisponível",
+        ),
+        height="56px",
+        width="100%",
+    )
+
+
 def _booking_day_step() -> rx.Component:
     return _booking_step(
         "3",
         "Dia e horário",
-        rx.input(
-            type="date",
-            value=State.booking_date,
-            min=State.booking_date_min,
-            max=State.booking_date_max,
-            on_change=State.set_booking_date,
-            width="100%",
-            size="3",
-            aria_label="Dia do agendamento",
-        ),
         rx.text(
-            "Escolha um dia entre hoje e os próximos 30 dias.",
+            "Escolha um dia entre hoje e os próximos 30 dias. Dias riscados "
+            "não têm horários livres.",
             color=COLORS["muted"],
             size="2",
+        ),
+        rx.cond(
+            State.booking_days_loading,
+            rx.text("Carregando dias disponíveis...", color=COLORS["muted"]),
+            rx.cond(
+                State.booking_days_error != "",
+                rx.text(
+                    State.booking_days_error,
+                    role="alert",
+                    color=COLORS["error"],
+                ),
+                rx.grid(
+                    rx.foreach(State.booking_days, _booking_day_button),
+                    columns={"initial": "4", "sm": "7"},
+                    spacing="2",
+                    width="100%",
+                ),
+            ),
         ),
         rx.cond(
             State.booking_slots_loading,

@@ -102,3 +102,18 @@ O sistema SHALL permitir, sem autenticação, listar os profissionais ativos vin
 #### Scenario: Identificador desconhecido
 - **WHEN** o identificador público não corresponde a nenhuma empresa
 - **THEN** o sistema responde como não encontrado
+
+### Requirement: Consulta pública de dias com horários livres
+O sistema SHALL oferecer, sem autenticação e em uma única consulta, a lista de dias locais em `America/Sao_Paulo`, de hoje até 30 dias à frente, que possuem ao menos um início disponível para um serviço ativo da empresa e, opcionalmente, um profissional, aplicando as mesmas regras de disponibilidade; a interface SHALL usar essa lista para marcar os dias indisponíveis no calendário antes da escolha do dia.
+
+#### Scenario: Dias com e sem horários livres
+- **WHEN** uma pessoa consulta os dias disponíveis de um serviço ativo
+- **THEN** o sistema retorna somente os dias da janela que têm ao menos um horário livre, e a interface apresenta os demais como indisponíveis antes da seleção
+
+#### Scenario: Filtro por profissional
+- **WHEN** a consulta indica um profissional ativo vinculado ao serviço
+- **THEN** o sistema considera somente os períodos e agendamentos desse profissional
+
+#### Scenario: Serviço ou empresa inválidos
+- **WHEN** o identificador da empresa é desconhecido ou o serviço está inativo, não existe ou pertence a outra empresa
+- **THEN** o sistema responde como não encontrado sem retornar dias
