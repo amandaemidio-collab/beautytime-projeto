@@ -83,3 +83,22 @@ O sistema SHALL exigir uma sessão de cliente válida para criar um agendamento 
 #### Scenario: Dados de outra empresa
 - **WHEN** uma cliente consulta disponibilidade para uma empresa ou serviço inexistente ou pertencente a outra empresa
 - **THEN** o sistema não retorna disponibilidade nem dados privados de outra empresa
+
+### Requirement: Consulta pública de profissionais por serviço
+O sistema SHALL permitir, sem autenticação, listar os profissionais ativos vinculados a um serviço ativo de uma empresa localizada pelo identificador público, retornando somente o id e o nome de cada profissional, para apoiar a escolha de profissional no agendamento.
+
+#### Scenario: Serviço com profissionais vinculados
+- **WHEN** uma pessoa consulta os profissionais de um serviço ativo da empresa
+- **THEN** o sistema retorna apenas os profissionais ativos vinculados a esse serviço, com id e nome, sem outros dados
+
+#### Scenario: Profissional inativo ou não vinculado
+- **WHEN** um profissional da empresa está inativo ou não realiza o serviço consultado
+- **THEN** o sistema não o inclui na lista
+
+#### Scenario: Serviço inativo, inexistente ou de outra empresa
+- **WHEN** o serviço consultado está inativo, não existe ou pertence a outra empresa
+- **THEN** o sistema responde como não encontrado sem revelar profissionais
+
+#### Scenario: Identificador desconhecido
+- **WHEN** o identificador público não corresponde a nenhuma empresa
+- **THEN** o sistema responde como não encontrado

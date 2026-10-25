@@ -27,6 +27,7 @@ query "public/services" verb=GET {
 
   response = ```
     $services|map:{
+        id: $$.id,
         name: $$.name,
         duration_minutes: $$.duration_minutes,
         price_cents: $$.price_cents
