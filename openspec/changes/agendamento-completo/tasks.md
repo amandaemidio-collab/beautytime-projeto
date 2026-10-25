@@ -25,10 +25,10 @@
 
 ## 5. Verificação integrada
 
-- [ ] 5.1 Percorrer por chamadas HTTP reais o fluxo completo e as regras críticas com duas empresas e duas clientes: disponibilidade e conflito, reserva escolhida e “sem preferência”, revalidação na criação, snapshot do serviço, cancelamento exatamente a 8 horas e abaixo desse limite, isolamento entre empresas e entre clientes e visualização administrativa. Registrar os resultados sem adicionar infraestrutura de testes automatizados.
-- [ ] 5.2 Percorrer manualmente no navegador, em viewport móvel e desktop, a configuração de horários, o agendamento público com autenticação intermediária, a confirmação/política, a área da cliente e a Agenda da administradora; confirmar estados vazios, falhas e permissões e que nenhum fluxo existente de login/cadastro ou página pública foi quebrado.
+- [x] 5.1 Percorrer por chamadas HTTP reais o fluxo completo e as regras críticas com duas empresas e duas clientes: disponibilidade e conflito, reserva escolhida e “sem preferência”, revalidação na criação, snapshot do serviço, cancelamento exatamente a 8 horas e abaixo desse limite, isolamento entre empresas e entre clientes e visualização administrativa. Registrar os resultados sem adicionar infraestrutura de testes automatizados.
+- [x] 5.2 Percorrer manualmente no navegador, em viewport móvel e desktop, a configuração de horários, o agendamento público com autenticação intermediária, a confirmação/política, a área da cliente e a Agenda da administradora; confirmar estados vazios, falhas e permissões e que nenhum fluxo existente de login/cadastro ou página pública foi quebrado.
   - Na rodada de verificação final, testar o cancelamento de um agendamento criado no próprio dia, cujo horário de início já tenha passado.
-- [ ] 5.3 Executar `xano workspace push --dry-run`, revisar e apresentar as alterações e aguardar confirmação explícita antes de qualquer push real; após publicação autorizada, repetir as verificações HTTP e manuais afetadas.
+- [x] 5.3 Executar `xano workspace push --dry-run`, revisar e apresentar as alterações e aguardar confirmação explícita antes de qualquer push real; após publicação autorizada, repetir as verificações HTTP e manuais afetadas.
 
 ## Workflow follow-up
 
