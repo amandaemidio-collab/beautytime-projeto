@@ -140,6 +140,7 @@ Período em que um profissional atende, por dia da semana. Exemplo: terça-feira
 - hora de término.
 
 Um profissional pode ter vários períodos no mesmo dia, por exemplo, das 9h às 12h e das 14h às 18h.
+Os períodos se repetem semanalmente e representam horários locais no fuso `America/Sao_Paulo`.
 
 ### Relacionamentos
 - Pertence a um profissional.
@@ -157,8 +158,9 @@ Reserva de um horário de um profissional para realizar um serviço para uma cli
 ### Principais informações
 - data e hora de início;
 - data e hora de término (calculada pela duração do serviço);
-- situação: agendado, cancelado ou concluído;
-- indicação de cancelamento tardio, quando aplicável.
+- situação: `agendado` ou `cancelado`;
+- cópia do nome, da duração e do preço do serviço no momento da reserva;
+- indicação de cancelamento tardio.
 
 ### Relacionamentos
 - Pertence a uma empresa.
@@ -171,7 +173,10 @@ Reserva de um horário de um profissional para realizar um serviço para uma cli
 - Um profissional não pode ter dois agendamentos ativos com horários sobrepostos.
 - Agendamentos cancelados liberam o horário.
 - A disponibilidade exclui os profissionais ocupados. Se nenhum profissional tiver horário livre em um dia, esse dia fica indisponível no calendário.
-- Os horários de início são oferecidos em intervalos de 15 minutos.
+- Os horários de início são oferecidos em intervalos de 15 minutos do relógio local (`:00`, `:15`, `:30`, `:45`) no fuso `America/Sao_Paulo`.
 - A cliente só pode agendar com no mínimo 1 hora e no máximo 30 dias de antecedência.
-- A cliente pode cancelar sem custo até 8 horas antes do horário agendado. Depois desse limite, é exibido um aviso de taxa de R$ 5,00, e o cancelamento é marcado como tardio e fica visível para a administradora.
-- A taxa de cancelamento tardio é apenas informativa: o aplicativo não processa pagamentos nem cobra o valor. A política de cancelamento também é exibida após a confirmação do agendamento.
+- O nome, a duração e o preço do serviço são copiados para o agendamento e permanecem inalterados se o cadastro do serviço mudar depois.
+- Agendamentos têm somente as situações `agendado` e `cancelado`. Um agendamento cancelado libera o horário.
+- A cliente pode cancelar sem custo quando faltam 8 horas ou mais para o início. Com menos de 8 horas, o cancelamento é tardio e fica visível para a administradora.
+- Antes de confirmar um cancelamento tardio, a interface informa a taxa de R$ 5,00 e solicita confirmação. A taxa é apenas informativa: o aplicativo não processa pagamentos nem cobra o valor. A política também é exibida após a confirmação do agendamento.
+- Agendamentos passados não podem ser cancelados pela cliente.
