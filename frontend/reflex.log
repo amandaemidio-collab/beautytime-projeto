@@ -1,9 +1,0 @@
-Warning: Windows Subsystem for Linux (WSL) is recommended for improving initial
-install times.
------------------------------ Starting Reflex App -----------------------------
-Compiling: ---------------------------------------- 100% 32/31 0:00:00
-Info: Preferring npm because reflex.lock/ has package-lock.json and no 
-bun.lock. Run once with REFLEX_USE_NPM=0 to switch this project back to bun.
-Creating Production Build:  ---------------------------------- 100% 4/4 0:00:03
---------------------------------- App Running ---------------------------------
-App running at: http://0.0.0.0:3000/
