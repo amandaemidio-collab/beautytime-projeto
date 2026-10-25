@@ -160,6 +160,10 @@ A interface SHALL oferecer à administradora uma área protegida para listar, ca
 - **WHEN** a administradora envia dados inválidos ou um nome já utilizado pela empresa
 - **THEN** a interface mostra o erro junto ao campo correspondente e preserva os valores digitados
 
+#### Scenario: Duração escolhida em lista
+- **WHEN** a administradora cadastra ou edita um serviço
+- **THEN** a interface oferece opções de duração em passos de 15 minutos, de 15 minutos a 8 horas, com rótulos legíveis, e envia o valor selecionado à API em minutos
+
 #### Scenario: Situação visível na listagem
 - **WHEN** a empresa possui serviços ativos e inativos
 - **THEN** a interface diferencia os inativos e oferece a ação de reativá-los
