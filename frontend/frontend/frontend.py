@@ -1,5 +1,6 @@
 """BeautyTime booking, account, and public-company pages."""
 
+import json
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -42,6 +43,7 @@ PAGE_STYLE = {
     "background_color": COLORS["background"],
     "font_family": FONT_FAMILY,
     "padding": {"initial": "28px 16px", "md": "56px 24px"},
+    "overflow_x": "hidden",
 }
 CARD_STYLE = {
     "width": "100%",
@@ -131,7 +133,7 @@ def _identifier_field() -> rx.Component:
             size="3",
             style=FORM_FIELD_STYLE,
             aria_invalid=State.identifier_error != "",
-            aria_described_by="public-identifier-help public-identifier-error",
+            aria_describedby="public-identifier-help public-identifier-error",
         ),
         rx.text(
             HELPER_TEXT,
@@ -239,6 +241,10 @@ class State(rx.State):
     user_role: str = ""
     company_name: str = ""
     company_identifier: str = ""
+    dashboard_loading: bool = False
+    dashboard_error: str = ""
+    public_link: str = ""
+    clipboard_notice: str = ""
     public_company_name: str = ""
     public_company_identifier: str = ""
     public_company_message: str = ""
@@ -257,11 +263,22 @@ class State(rx.State):
     service_name_error: str = ""
     service_duration_error: str = ""
     service_price_error: str = ""
+    professionals_loading: bool = False
+    professionals_error: str = ""
+    professionals_notice: str = ""
+    professional_items: list[dict[str, Any]] = []
+    professional_service_options: list[dict[str, Any]] = []
+    editing_professional_id: int = 0
+    professional_name: str = ""
+    professional_name_error: str = ""
+    professional_service_ids: list[str] = []
+    professional_original_service_ids: list[str] = []
 
     @rx.event
     def clear_message(self):
         self.message = ""
         self.identifier_error = ""
+        self.clipboard_notice = ""
 
     def _set_session_from_identity(
         self,
@@ -426,7 +443,7 @@ class State(rx.State):
         else:
             self.company_name = company_name
             self.company_identifier = identifier
-        return rx.redirect("/admin/servicos")
+        return rx.redirect("/admin")
 
     @rx.event
     def admin_login(self, form_data: dict[str, Any]):
@@ -451,7 +468,7 @@ class State(rx.State):
         self._auth_token = token
         if not self._load_identity("admin"):
             return
-        return rx.redirect("/admin/servicos")
+        return rx.redirect("/admin")
 
     @rx.event
     def load_welcome(self):
@@ -470,9 +487,58 @@ class State(rx.State):
         self.user_role = ""
         self.company_name = ""
         self.company_identifier = ""
+        self.public_link = ""
+        self.professional_items = []
+        self.professional_service_options = []
         self.service_items = []
         self.message = ""
         return rx.redirect("/")
+
+    @rx.event
+    def load_admin_dashboard(self):
+        self.dashboard_loading = True
+        self.dashboard_error = ""
+        self.clipboard_notice = ""
+        if not self._auth_token or not self._load_identity("admin"):
+            self.dashboard_loading = False
+            return rx.redirect("/admin/login")
+        if not self._refresh_admin_catalog():
+            self.dashboard_loading = False
+            self.dashboard_error = self.services_error
+            return
+        self.dashboard_loading = False
+        return rx.call_script(
+            "window.location.origin + '/agendar/' + "
+            f"encodeURIComponent({json.dumps(self.company_identifier)})",
+            callback=State.set_public_link,
+        )
+
+    @rx.event
+    def set_public_link(self, link: str):
+        self.public_link = link
+
+    @rx.event
+    def copy_public_link(self):
+        self.clipboard_notice = ""
+        if not self.public_link:
+            self.clipboard_notice = (
+                "O link público ainda não está disponível para cópia."
+            )
+            return
+        return rx.call_script(
+            "navigator.clipboard.writeText("
+            f"{json.dumps(self.public_link)}"
+            ").then(() => true).catch(() => false)",
+            callback=State.handle_clipboard_result,
+        )
+
+    @rx.event
+    def handle_clipboard_result(self, copied: bool):
+        self.clipboard_notice = (
+            "Link copiado."
+            if copied
+            else "Não foi possível copiar. Selecione e copie o link exibido."
+        )
 
     def _refresh_admin_catalog(self) -> bool:
         status, data = request_json(
@@ -702,6 +768,314 @@ class State(rx.State):
             else "Serviço desativado."
         )
         self._refresh_admin_catalog()
+
+    def _refresh_professional_catalog(self) -> bool:
+        status, data = request_json(
+            "GET",
+            api_url("catalogo", "admin/professionals"),
+            token=self._auth_token,
+        )
+        if status != 200:
+            self.professionals_error = _api_error(status, data)
+            self.professional_items = []
+            self.professional_service_options = []
+            return False
+
+        professionals = data.get("professionals")
+        services = data.get("services")
+        associations = data.get("service_associations")
+        if not all(
+            isinstance(value, list)
+            for value in (professionals, services, associations)
+        ):
+            self.professionals_error = (
+                "A API retornou dados inválidos para os profissionais."
+            )
+            self.professional_items = []
+            self.professional_service_options = []
+            return False
+
+        self.professional_service_options = []
+        for service in services:
+            if (
+                not isinstance(service, dict)
+                or not isinstance(service.get("id"), int)
+                or isinstance(service.get("id"), bool)
+                or not isinstance(service.get("name"), str)
+            ):
+                self.professionals_error = (
+                    "A API retornou um serviço inválido para seleção."
+                )
+                self.professional_service_options = []
+                return False
+            self.professional_service_options.append(
+                {"id": str(service["id"]), "name": service["name"]}
+            )
+
+        associations_by_professional: dict[int, list[dict[str, Any]]] = {}
+        for association in associations:
+            if (
+                not isinstance(association, dict)
+                or not isinstance(association.get("professional_id"), int)
+                or not isinstance(association.get("service_id"), int)
+                or not isinstance(association.get("service_name"), str)
+                or not isinstance(association.get("service_is_active"), bool)
+            ):
+                self.professionals_error = (
+                    "A API retornou uma associação de serviço inválida."
+                )
+                self.professional_items = []
+                return False
+            associations_by_professional.setdefault(
+                association["professional_id"], []
+            ).append(association)
+
+        self.professional_items = []
+        for professional in professionals:
+            if (
+                not isinstance(professional, dict)
+                or not isinstance(professional.get("id"), int)
+                or not isinstance(professional.get("name"), str)
+                or not isinstance(professional.get("is_active"), bool)
+            ):
+                self.professionals_error = (
+                    "A API retornou um profissional inválido."
+                )
+                self.professional_items = []
+                return False
+
+            linked_services = associations_by_professional.get(
+                professional["id"], []
+            )
+            service_names = [
+                f"{item['service_name']}{'' if item['service_is_active'] else ' (inativo)'}"
+                for item in linked_services
+            ]
+            self.professional_items.append(
+                {
+                    "id": professional["id"],
+                    "name": professional["name"],
+                    "is_active": professional["is_active"],
+                    "service_ids": [
+                        str(item["service_id"])
+                        for item in linked_services
+                        if item["service_is_active"]
+                    ],
+                    "services_label": ", ".join(service_names)
+                    or "Nenhum serviço associado.",
+                }
+            )
+
+        self.professionals_error = ""
+        return True
+
+    @rx.event
+    def load_admin_professionals(self):
+        self._reset_professional_form()
+        self.professionals_loading = True
+        self.professionals_error = ""
+        self.professionals_notice = ""
+        if not self._auth_token or not self._load_identity("admin"):
+            self.professional_items = []
+            self.professional_service_options = []
+            self.professionals_loading = False
+            return rx.redirect("/admin/login")
+
+        if not self._refresh_admin_catalog():
+            self.professional_items = []
+            self.professional_service_options = []
+            self.professionals_error = self.services_error
+            self.professionals_loading = False
+            return
+
+        self._refresh_professional_catalog()
+        self.professionals_loading = False
+
+    @rx.event
+    def begin_professional_edit(self, professional_id: int):
+        professional = next(
+            (
+                item
+                for item in self.professional_items
+                if item["id"] == professional_id
+            ),
+            None,
+        )
+        if professional is None:
+            self.professionals_error = (
+                "O profissional não está mais disponível na lista."
+            )
+            return
+
+        self.editing_professional_id = professional_id
+        self.professional_name = professional["name"]
+        self.professional_name_error = ""
+        self.professional_service_ids = list(professional["service_ids"])
+        self.professional_service_ids = sorted(self.professional_service_ids)
+        self.professional_original_service_ids = sorted(
+        professional["service_ids"]
+        )
+        self.professionals_error = ""
+        self.professionals_notice = ""
+
+    def _reset_professional_form(self):
+        self.editing_professional_id = 0
+        self.professional_name = ""
+        self.professional_name_error = ""
+        self.professional_service_ids = []
+        self.professional_original_service_ids = []
+
+    @rx.event
+    def cancel_professional_edit(self):
+        self._reset_professional_form()
+        self.professionals_error = ""
+        self.professionals_notice = ""
+
+    @rx.event
+    def set_professional_name(self, value: str):
+        self.professional_name = value
+
+    @rx.event
+    def set_professional_service_ids(self, service_ids: list[str]):
+        self.professional_service_ids = sorted(set(service_ids))
+
+    @rx.event
+    def toggle_professional_service_selection(
+        self,
+        service_id: str,
+        checked: bool,
+    ):
+        selected = set(self.professional_service_ids)
+        if checked:
+            selected.add(service_id)
+        else:
+            selected.discard(service_id)
+        self.professional_service_ids = sorted(selected)
+
+    @rx.event
+    def submit_professional(self, form_data: dict[str, Any]):
+        self.professionals_error = ""
+        self.professionals_notice = ""
+        self.professional_name = str(
+            form_data.get("professional_name", self.professional_name)
+        ).strip()
+        self.professional_name_error = ""
+
+        if not self.professional_name:
+            self.professional_name_error = "Informe o nome do profissional."
+            return
+
+        selected_service_ids = sorted(set(self.professional_service_ids))
+        if self.editing_professional_id:
+            services_changed = (
+                selected_service_ids != self.professional_original_service_ids
+            )
+        else:
+            services_changed = True
+
+        if services_changed and not selected_service_ids:
+            self.professionals_error = (
+                "Selecione pelo menos um serviço ativo da sua empresa."
+            )
+            return
+        if not self.editing_professional_id and not self.professional_service_options:
+            self.professionals_error = (
+                "Cadastre um serviço ativo antes de criar um profissional."
+            )
+            return
+
+        try:
+            service_ids = [int(service_id) for service_id in selected_service_ids]
+        except ValueError:
+            self.professionals_error = (
+                "A seleção de serviços contém um identificador inválido."
+            )
+            return
+
+        if self.editing_professional_id:
+            payload: dict[str, object] = {"name": self.professional_name}
+            if services_changed:
+                payload["service_ids"] = service_ids
+            method = "PATCH"
+            path = (
+                "admin/professionals/"
+                f"{self.editing_professional_id}"
+            )
+        else:
+            payload = {
+                "name": self.professional_name,
+                "service_ids": service_ids,
+            }
+            method = "POST"
+            path = "admin/professionals"
+
+        status, data = request_json(
+            method,
+            api_url("catalogo", path),
+            payload,
+            token=self._auth_token,
+        )
+        if status not in (200, 201):
+            error = str(data.get("message", ""))
+            if error == "professional_name_required":
+                self.professional_name_error = (
+                    "Informe o nome do profissional."
+                )
+            elif error in (
+                "professional_requires_service",
+                "professional_service_invalid",
+                "professional_service_duplicate",
+            ):
+                self.professionals_error = (
+                    "Selecione somente serviços ativos da sua empresa."
+                )
+            else:
+                self.professionals_error = _api_error(status, data)
+            return
+
+        self._reset_professional_form()
+        self.professionals_notice = (
+            "Profissional atualizado com sucesso."
+            if method == "PATCH"
+            else "Profissional cadastrado com sucesso."
+        )
+        self._refresh_professional_catalog()
+
+    @rx.event
+    def toggle_professional_status(self, professional_id: int):
+        professional = next(
+            (
+                item
+                for item in self.professional_items
+                if item["id"] == professional_id
+            ),
+            None,
+        )
+        if professional is None:
+            self.professionals_error = (
+                "O profissional não está mais disponível na lista."
+            )
+            return
+
+        status, data = request_json(
+            "PATCH",
+            api_url(
+                "catalogo",
+                f"admin/professionals/{professional_id}/status",
+            ),
+            {"is_active": not professional["is_active"]},
+            token=self._auth_token,
+        )
+        if status != 200:
+            self.professionals_error = _api_error(status, data)
+            return
+
+        self.professionals_notice = (
+            "Profissional reativado."
+            if data.get("is_active")
+            else "Profissional desativado."
+        )
+        self._refresh_professional_catalog()
 
     @rx.event
     def load_public_company(self):
@@ -1069,7 +1443,7 @@ def _service_form_field(
             size="3",
             style=FORM_FIELD_STYLE,
             aria_invalid=error != "",
-            aria_described_by=error_id,
+            aria_describedby=error_id,
             **input_props,
         ),
         rx.text(
@@ -1207,25 +1581,549 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
     )
 
 
-def admin_services_page() -> rx.Component:
+def _admin_header() -> rx.Component:
+    return rx.flex(
+        _brand(),
+        rx.flex(
+            rx.link(
+                "Painel",
+                href="/admin",
+                color=COLORS["accent"],
+                font_weight="medium",
+            ),
+            rx.link(
+                "Serviços",
+                href="/admin/servicos",
+                color=COLORS["accent"],
+                font_weight="medium",
+            ),
+            rx.link(
+                "Profissionais",
+                href="/admin/profissionais",
+                color=COLORS["accent"],
+                font_weight="medium",
+            ),
+            direction={"initial": "column", "sm": "row"},
+            align={"initial": "stretch", "sm": "center"},
+            wrap="wrap",
+            spacing="4",
+            width={"initial": "100%", "sm": "auto"},
+        ),
+        rx.button(
+            "Sair",
+            on_click=State.logout,
+            variant="outline",
+            height="44px",
+            color=COLORS["accent"],
+            border_color=COLORS["border"],
+            width={"initial": "100%", "sm": "auto"},
+        ),
+        direction={"initial": "column", "sm": "row"},
+        align={"initial": "stretch", "sm": "center"},
+        justify="between",
+        width="100%",
+        spacing="4",
+    )
+
+
+def _admin_area_card(
+    title: str,
+    description: str,
+    href: str = "",
+) -> rx.Component:
+    content = rx.vstack(
+        rx.heading(title, size="4", color=COLORS["text"]),
+        rx.text(description, color=COLORS["muted"], line_height="1.6"),
+        align="start",
+        spacing="2",
+        width="100%",
+    )
+    card = rx.box(
+        content,
+        width="100%",
+        min_height="112px",
+        padding={"initial": "18px", "sm": "22px"},
+        border=f"1px solid {COLORS['border']}",
+        border_radius="18px",
+        background_color=COLORS["surface"],
+        box_shadow=SHADOWS["tile"],
+    )
+    if href:
+        return rx.link(card, href=href, width="100%", underline="none")
+    return card
+
+
+def admin_dashboard_page() -> rx.Component:
     return rx.box(
         rx.vstack(
+            _admin_header(),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        "Painel administrativo",
+                        size={"initial": "6", "sm": "7"},
+                        color=COLORS["text"],
+                    ),
+                    rx.text(State.company_name, color=COLORS["muted"]),
+                    align="stretch",
+                    spacing="2",
+                    width="100%",
+                ),
+                width="100%",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["tile"],
+            ),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        "Link público do salão",
+                        size="5",
+                        color=COLORS["text"],
+                    ),
+                    rx.cond(
+                        State.public_link != "",
+                        rx.link(
+                            State.public_link,
+                            href=State.public_link,
+                            color=COLORS["accent"],
+                            word_break="break-all",
+                        ),
+                        rx.text(
+                            "Preparando o link público...",
+                            color=COLORS["muted"],
+                        ),
+                    ),
+                    rx.button(
+                        "Copiar link",
+                        on_click=State.copy_public_link,
+                        disabled=State.public_link == "",
+                        height="48px",
+                        width={"initial": "100%", "sm": "auto"},
+                        background_color=COLORS["accent"],
+                        color=COLORS["surface"],
+                        _hover={"background_color": COLORS["accent_hover"]},
+                    ),
+                    rx.text(
+                        State.clipboard_notice,
+                        role="status",
+                        color=COLORS["muted"],
+                        size="2",
+                    ),
+                    align="stretch",
+                    spacing="3",
+                    width="100%",
+                ),
+                width="100%",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["tile"],
+            ),
+            rx.cond(
+                State.dashboard_loading,
+                rx.text("Carregando painel...", color=COLORS["muted"]),
+                rx.text(
+                    State.dashboard_error,
+                    role="alert",
+                    color=COLORS["error"],
+                ),
+            ),
+            rx.grid(
+                _admin_area_card(
+                    "Serviços",
+                    "Cadastre e mantenha o catálogo da empresa.",
+                    "/admin/servicos",
+                ),
+                _admin_area_card(
+                    "Profissionais",
+                    "Gerencie a equipe e os serviços realizados.",
+                    "/admin/profissionais",
+                ),
+                _admin_area_card(
+                    "Horários",
+                    "Em breve",
+                ),
+                _admin_area_card(
+                    "Agenda",
+                    "Em breve",
+                ),
+                columns={"initial": "1", "sm": "2"},
+                spacing="4",
+                width="100%",
+            ),
+            align="stretch",
+            spacing="5",
+            width="100%",
+            max_width="820px",
+        ),
+        display="flex",
+        justify_content="center",
+        style=PAGE_STYLE,
+    )
+
+
+def _professional_card(
+    professional: rx.Var[dict[str, Any]],
+) -> rx.Component:
+    return rx.box(
+        rx.flex(
+            rx.vstack(
+                rx.flex(
+                    rx.heading(
+                        professional["name"],
+                        size="4",
+                        color=COLORS["text"],
+                        min_width=0,
+                        overflow_wrap="anywhere",
+                    ),
+                    rx.badge(
+                        rx.cond(
+                            professional["is_active"],
+                            "Ativo",
+                            "Inativo",
+                        ),
+                        color_scheme=rx.cond(
+                            professional["is_active"], "green", "gray"
+                        ),
+                    ),
+                    align="center",
+                    wrap="wrap",
+                    spacing="3",
+                ),
+                rx.text(
+                    professional["services_label"],
+                    color=COLORS["muted"],
+                    size="2",
+                    overflow_wrap="anywhere",
+                ),
+                align="start",
+                spacing="2",
+                flex="1",
+                min_width="0",
+            ),
             rx.flex(
-                _brand(),
                 rx.button(
-                    "Sair",
-                    on_click=State.logout,
+                    "Editar",
+                    on_click=State.begin_professional_edit(
+                        professional["id"]
+                    ),
                     variant="outline",
                     height="44px",
                     color=COLORS["accent"],
                     border_color=COLORS["border"],
+                    width={"initial": "100%", "sm": "auto"},
                 ),
-                justify="between",
-                align="center",
-                width="100%",
-                wrap="wrap",
-                spacing="3",
+                rx.button(
+                    rx.cond(
+                        professional["is_active"],
+                        "Desativar",
+                        "Reativar",
+                    ),
+                    on_click=State.toggle_professional_status(
+                        professional["id"]
+                    ),
+                    height="44px",
+                    color=COLORS["surface"],
+                    background_color=COLORS["accent"],
+                    _hover={"background_color": COLORS["accent_hover"]},
+                    width={"initial": "100%", "sm": "auto"},
+                ),
+                direction={"initial": "column", "sm": "row"},
+                spacing="2",
+                width={"initial": "100%", "sm": "auto"},
             ),
+            direction={"initial": "column", "sm": "row"},
+            align={"initial": "stretch", "sm": "center"},
+            spacing="4",
+            width="100%",
+            min_width="0",
+        ),
+        width="100%",
+        min_width="0",
+        padding={"initial": "18px", "sm": "22px"},
+        border=f"1px solid {COLORS['border']}",
+        border_radius="18px",
+        background_color=COLORS["surface"],
+        box_shadow=SHADOWS["tile"],
+    )
+
+
+def admin_professionals_page() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            _admin_header(),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        "Profissionais da empresa",
+                        size={"initial": "6", "sm": "7"},
+                        color=COLORS["text"],
+                    ),
+                    rx.text(State.company_name, color=COLORS["muted"]),
+                    align="stretch",
+                    spacing="2",
+                    width="100%",
+                ),
+                width="100%",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["tile"],
+            ),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        rx.cond(
+                            State.editing_professional_id > 0,
+                            "Editar profissional",
+                            "Cadastrar profissional",
+                        ),
+                        size="5",
+                        color=COLORS["text"],
+                    ),
+                    rx.cond(
+                        (State.professional_service_options.length() == 0)
+                        & (State.editing_professional_id == 0),
+                        rx.callout(
+                            "Cadastre um serviço ativo antes de criar um profissional.",
+                            icon="info",
+                            color_scheme="ruby",
+                        ),
+                        rx.box(),
+                    ),
+                    rx.form(
+                        rx.vstack(
+                            rx.vstack(
+                                rx.text(
+                                    "Nome",
+                                    size="2",
+                                    weight="medium",
+                                    color=COLORS["text"],
+                                ),
+                                rx.input(
+                                    name="professional_name",
+                                    value=State.professional_name,
+                                    on_change=State.set_professional_name,
+                                    required=True,
+                                    width="100%",
+                                    size="3",
+                                    style=FORM_FIELD_STYLE,
+                                    placeholder="Nome do profissional",
+                                    aria_invalid=(
+                                        State.professional_name_error != ""
+                                    ),
+                                    aria_describedby=(
+                                        "professional-name-error"
+                                    ),
+                                ),
+                                rx.text(
+                                    State.professional_name_error,
+                                    id="professional-name-error",
+                                    role="alert",
+                                    size="2",
+                                    color=COLORS["error"],
+                                ),
+                                align="stretch",
+                                spacing="2",
+                                width="100%",
+                            ),
+                            rx.vstack(
+                                rx.text(
+                                    "Serviços que realiza",
+                                    size="2",
+                                    weight="medium",
+                                    color=COLORS["text"],
+                                ),
+                                rx.cond(
+                                    State.professional_service_options.length()
+                                    > 0,
+                                    rx.vstack(
+                                        rx.foreach(
+                                            State.professional_service_options,
+                                            lambda service: rx.checkbox(
+                                                service["name"],
+                                                value=service["id"],
+                                                name="service_ids",
+                                                checked=State.professional_service_ids.contains(
+                                                    service["id"]
+                                                ),
+                                                on_change=State.toggle_professional_service_selection(
+                                                    service["id"]
+                                                ),
+                                                color_scheme="ruby",
+                                            ),
+                                        ),
+                                        align="stretch",
+                                        spacing="3",
+                                        width="100%",
+                                    ),
+                                    rx.text(
+                                        "Não há serviços ativos para selecionar.",
+                                        color=COLORS["muted"],
+                                        size="2",
+                                    ),
+                                ),
+                                align="stretch",
+                                spacing="3",
+                                width="100%",
+                            ),
+                            rx.text(
+                                State.professionals_error,
+                                role="alert",
+                                color=COLORS["error"],
+                                size="2",
+                            ),
+                            rx.text(
+                                State.professionals_notice,
+                                role="status",
+                                color=COLORS["accent"],
+                                size="2",
+                            ),
+                            rx.flex(
+                                rx.button(
+                                    rx.cond(
+                                        State.editing_professional_id > 0,
+                                        "Salvar alterações",
+                                        "Cadastrar profissional",
+                                    ),
+                                    type="submit",
+                                    height="52px",
+                                    width={"initial": "100%", "sm": "auto"},
+                                    disabled=(
+                                        (State.professional_service_options.length()
+                                        == 0)
+                                        & (State.editing_professional_id == 0)
+                                    ),
+                                    background_color=COLORS["accent"],
+                                    color=COLORS["surface"],
+                                    _hover={
+                                        "background_color": COLORS[
+                                            "accent_hover"
+                                        ]
+                                    },
+                                ),
+                                rx.cond(
+                                    State.editing_professional_id > 0,
+                                    rx.button(
+                                        "Cancelar edição",
+                                        type="button",
+                                        on_click=State.cancel_professional_edit,
+                                        variant="outline",
+                                        height="52px",
+                                        width={"initial": "100%", "sm": "auto"},
+                                        color=COLORS["accent"],
+                                        border_color=COLORS["border"],
+                                    ),
+                                    rx.box(),
+                                ),
+                                direction={"initial": "column", "sm": "row"},
+                                spacing="3",
+                                width="100%",
+                            ),
+                            align="stretch",
+                            spacing="4",
+                            width="100%",
+                        ),
+                        id="professional-form",
+                        on_submit=State.submit_professional,
+                        reset_on_submit=False,
+                        width="100%",
+                    ),
+                    align="stretch",
+                    spacing="4",
+                    width="100%",
+                ),
+                width="100%",
+                min_width="0",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["card"],
+            ),
+            rx.vstack(
+                rx.heading(
+                    "Equipe",
+                    size="5",
+                    color=COLORS["text"],
+                ),
+                rx.cond(
+                    State.professionals_loading,
+                    rx.text(
+                        "Carregando profissionais...",
+                        color=COLORS["muted"],
+                    ),
+                    rx.cond(
+                        State.professionals_error != "",
+                        rx.text(
+                            State.professionals_error,
+                            role="alert",
+                            color=COLORS["error"],
+                        ),
+                        rx.cond(
+                            State.professional_items.length() == 0,
+                            rx.box(
+                                rx.vstack(
+                                    rx.text(
+                                        "Sua empresa ainda não tem profissionais cadastrados.",
+                                        color=COLORS["muted"],
+                                    ),
+                                    rx.link(
+                                        rx.button(
+                                            "Cadastrar o primeiro profissional",
+                                            height="48px",
+                                            width="100%",
+                                            background_color=COLORS["accent"],
+                                            color=COLORS["surface"],
+                                        ),
+                                        href="#professional-form",
+                                        width="100%",
+                                    ),
+                                    align="stretch",
+                                    spacing="3",
+                                    width="100%",
+                                ),
+                                width="100%",
+                                padding="22px",
+                                border=f"1px dashed {COLORS['border']}",
+                                border_radius="16px",
+                            ),
+                            rx.vstack(
+                                rx.foreach(
+                                    State.professional_items,
+                                    _professional_card,
+                                ),
+                                align="stretch",
+                                spacing="3",
+                                width="100%",
+                            ),
+                        ),
+                    ),
+                ),
+                align="stretch",
+                spacing="4",
+                width="100%",
+            ),
+            align="stretch",
+            spacing="5",
+            width="100%",
+            max_width="820px",
+        ),
+        display="flex",
+        justify_content="center",
+        style=PAGE_STYLE,
+    )
+
+
+def admin_services_page() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            _admin_header(),
             rx.box(
                 rx.vstack(
                     rx.heading(
@@ -1589,10 +2487,22 @@ app.add_page(
     on_load=State.clear_message,
 )
 app.add_page(
+    admin_dashboard_page,
+    route="/admin",
+    title="Painel administrativo",
+    on_load=State.load_admin_dashboard,
+)
+app.add_page(
     admin_services_page,
     route="/admin/servicos",
     title="Serviços da empresa",
     on_load=State.load_admin_services,
+)
+app.add_page(
+    admin_professionals_page,
+    route="/admin/profissionais",
+    title="Profissionais da empresa",
+    on_load=State.load_admin_professionals,
 )
 app.add_page(
     welcome_page,
