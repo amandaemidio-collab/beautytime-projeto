@@ -15,13 +15,13 @@
 
 ## 3. Telas da administradora
 
-- [ ] 3.1 Implementar a área protegida de Horários no Reflex, com seleção de profissional, períodos semanais múltiplos por dia e estados de carregamento, vazio e erro; verificar manualmente no navegador cadastro, edição e remoção, mais de um período no mesmo dia, redirecionamento de cliente/sem sessão e ausência de dados de outra empresa.
-- [ ] 3.2 Implementar a Agenda protegida no Reflex com seleção de dia, filtro por profissional e exibição de cliente, serviço, horário, situação e marcação tardia, sem controles de edição/cancelamento; verificar manualmente dia com e sem reservas, filtro de profissional e que administradora de outra empresa e cliente não veem dados.
+- [x] 3.1 Implementar a área protegida de Horários no Reflex, com seleção de profissional, períodos semanais múltiplos por dia e estados de carregamento, vazio e erro; verificar manualmente no navegador cadastro, edição e remoção, mais de um período no mesmo dia, redirecionamento de cliente/sem sessão e ausência de dados de outra empresa.
+- [x] 3.2 Implementar a Agenda protegida no Reflex com seleção de dia, filtro por profissional e exibição de cliente, serviço, horário, situação e marcação tardia, sem controles de edição/cancelamento; verificar manualmente dia com e sem reservas, filtro de profissional e que administradora de outra empresa e cliente não veem dados.
 
 ## 4. Fluxo da cliente
 
-- [ ] 4.1 Completar `/agendar/{identificador}` no Reflex com escolha sequencial de serviço, profissional ou “sem preferência”, dia e horário; retomar as escolhas após login/cadastro e apresentar a confirmação somente após sucesso do backend. Verificar manualmente em desktop e celular o caminho principal, retorno com escolhas preservadas e erro ao confirmar horário que ficou ocupado.
-- [ ] 4.2 Substituir a página de boas-vindas pela área `/meus-agendamentos`, separando próximos e passados, exibindo o resumo da reserva e a política; apresentar aviso e confirmação da taxa informativa antes do cancelamento tardio. Verificar manualmente login/cadastro, estados vazio e preenchido, valores históricos do serviço, cancelamentos nos dois lados do limite de 8 horas, recusa e impossibilidade de cancelar agendamento passado.
+- [x] 4.1 Completar `/agendar/{identificador}` no Reflex com escolha sequencial de serviço, profissional ou “sem preferência”, dia e horário; retomar as escolhas após login/cadastro e apresentar a confirmação somente após sucesso do backend. Verificar manualmente em desktop e celular o caminho principal, retorno com escolhas preservadas e erro ao confirmar horário que ficou ocupado.
+- [x] 4.2 Substituir a página de boas-vindas pela área `/meus-agendamentos`, separando próximos e passados, exibindo o resumo da reserva e a política; apresentar aviso e confirmação da taxa informativa antes do cancelamento tardio. Verificar manualmente login/cadastro, estados vazio e preenchido, valores históricos do serviço, cancelamentos nos dois lados do limite de 8 horas, recusa e impossibilidade de cancelar agendamento passado.
 
 ## 5. Verificação integrada
 
