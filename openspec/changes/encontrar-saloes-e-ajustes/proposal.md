@@ -11,7 +11,7 @@ Hoje a cliente só chega a um salão pelo link divulgado pela empresa: na área 
 - Na área `/meus-agendamentos`, um botão "Novo agendamento" que leva à tela "Encontrar salões".
 - Em cada agendamento listado em `/meus-agendamentos` (próximos e passados, inclusive cancelados), um botão "Agendar de novo" que leva a `/agendar/{identificador}` do salão daquele agendamento.
 - Ajuste de layout da página pública `/agendar/{identificador}` para usar as mesmas margens laterais das outras telas, sem conteúdo encostado na borda nem cartão cortado, em celular e desktop.
-- Garantir que a página pública apresente um texto introdutório adequado ao fluxo de agendamento, sem mensagem de "em breve". Observação: o código atual já exibe "Agende seu horário em poucos toques." (o texto de "em breve" foi removido no commit `221b0dc`); a tarefa confirma no navegador, após reiniciar o app, que nenhuma versão antiga é exibida.
+- Garantir que a página pública apresente um texto introdutório adequado ao fluxo de agendamento, sem mensagem de "em breve". Observação: o texto de "em breve" já tinha sido removido no commit `221b0dc`; o texto que estava no lugar ("Agende seu horário em poucos toques.") foi trocado por um que convida a escolher serviço, profissional, dia e horário.
 - Atualizar `docs/domain-model.md` para definir que "empresa ativa" na lista pública é a empresa que aceita reservas.
 
 ### Fora do escopo
@@ -21,6 +21,7 @@ Hoje a cliente só chega a um salão pelo link divulgado pela empresa: na área 
 - Link para "Encontrar salões" na página inicial ou em outras telas além de `/meus-agendamentos`.
 - Preenchimento automático de serviço ou profissional ao usar "Agendar de novo": o fluxo começa do primeiro passo.
 - Mudanças nas regras de disponibilidade, reserva ou cancelamento.
+- Correção dos usos de dicionário responsivo em propriedades CSS fora dos estilos compartilhados de página, cartão e painel (por exemplo, larguras de botões e o padding interno do cartão de serviço da página pública).
 - Infraestrutura de testes automatizados.
 
 ## Capabilities
@@ -36,6 +37,6 @@ Hoje a cliente só chega a um salão pelo link divulgado pela empresa: na área 
 ## Impact
 
 - **Backend (Xano):** uma nova rota pública de leitura no grupo `Members & Accounts`, sem novas tabelas ou campos. Requer dry-run e confirmação antes do push.
-- **Frontend (Reflex):** nova página pública em `frontend/frontend/frontend.py`, novos botões na área da cliente e ajuste de layout da página `/agendar/{identificador}`. Sem novas dependências.
+- **Frontend (Reflex):** nova página pública em `frontend/frontend/frontend.py`, novos botões na área da cliente e ajuste de layout da página `/agendar/{identificador}`. Sem novas dependências. A causa das margens está nos estilos compartilhados de página, cartão e painel; a correção deles muda as margens e o espaçamento interno de todas as telas, inclusive as administrativas.
 - **Documentação:** `docs/domain-model.md` (definição de empresa ativa na lista pública).
 - **Privacidade:** a lista expõe somente nome e identificador público, dados que já são públicos pelo link de cada salão.

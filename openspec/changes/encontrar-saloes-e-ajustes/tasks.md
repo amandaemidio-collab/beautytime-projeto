@@ -2,9 +2,9 @@
 
 ## 1. Backend (Xano): lista pública de salões
 
-- [ ] 1.1 Consultar no Xano Developer MCP a sintaxe de junção, valores distintos e ordenação; implementar `GET companies/public` no grupo `Members & Accounts`, sem autenticação, retornando somente `name` e `public_identifier` das empresas com serviço ativo vinculado a profissional ativo da mesma empresa, sem repetição e em ordem alfabética. Validar o XanoScript pelo MCP.
-- [ ] 1.2 Executar `xano workspace push --dry-run`, apresentar o resultado e aguardar confirmação explícita antes do push real; após o push, conferir por HTTP: empresa que aceita reservas aparece uma única vez mesmo com vários serviços e profissionais; empresa com serviço ativo sem profissional ativo, e empresa com profissional ativo vinculado só a serviço inativo, não aparecem; ordem alfabética; resposta sem id, descrição, localização ou outros campos.
-- [ ] 1.3 Atualizar `docs/domain-model.md` para definir que a lista pública de salões mostra as empresas que aceitam reservas (serviço ativo vinculado a profissional ativo), removendo a "situação (ativa ou inativa)" da empresa; conferir que o documento corresponde à spec `salon-directory`.
+- [x] 1.1 Consultar no Xano Developer MCP a sintaxe de junção, valores distintos e ordenação; implementar `GET companies/public` no grupo `Members & Accounts`, sem autenticação, retornando somente `name` e `public_identifier` das empresas com serviço ativo vinculado a profissional ativo da mesma empresa, sem repetição e em ordem alfabética. Validar o XanoScript pelo MCP.
+- [x] 1.2 Executar `xano workspace push --dry-run`, apresentar o resultado e aguardar confirmação explícita antes do push real; após o push, conferir por HTTP: empresa que aceita reservas aparece uma única vez mesmo com vários serviços e profissionais; empresa com serviço ativo sem profissional ativo, e empresa com profissional ativo vinculado só a serviço inativo, não aparecem; ordem alfabética; resposta sem id, descrição, localização ou outros campos.
+- [x] 1.3 Atualizar `docs/domain-model.md` para definir que a lista pública de salões mostra as empresas que aceitam reservas (serviço ativo vinculado a profissional ativo), removendo a "situação (ativa ou inativa)" da empresa; conferir que o documento corresponde à spec `salon-directory`.
 
 ## 2. Frontend (Reflex): tela "Encontrar salões"
 
@@ -17,7 +17,7 @@
 
 ## 4. Frontend (Reflex): ajustes da página pública de agendamento
 
-- [ ] 4.1 Reiniciar o app Reflex e confirmar no navegador a causa do conteúdo encostado na borda e do cartão cortado em `/agendar/{identificador}`, comparando com `/meus-agendamentos` no mesmo viewport; ajustar `public_company_page` para a estrutura das telas da cliente (mesma largura máxima e margens, painel no lugar do cartão externo, contêineres sem largura mínima forçada). Verificar manualmente em celular e desktop todas as etapas (serviço, profissional, grade de dias, horários, resumo, confirmação) e a tela "Empresa não encontrada", sem rolagem horizontal nem cartão cortado.
+- [ ] 4.1 Reiniciar o app Reflex e confirmar a causa do conteúdo encostado na borda e do cartão cortado em `/agendar/{identificador}`, comparando com `/meus-agendamentos` no mesmo viewport. Causa confirmada: padding responsivo como dicionário nos estilos compartilhados `PAGE_STYLE`, `CARD_STYLE` e `_panel`, ignorado pelo Reflex em propriedades CSS. Por decisão da responsável, corrigir só esses três estilos com `rx.breakpoints(...)`. Verificar manualmente em celular e desktop todas as etapas (serviço, profissional, grade de dias, horários, resumo, confirmação), a tela "Empresa não encontrada" e, como a correção é compartilhada, as telas de login/cadastro e administrativas, sem rolagem horizontal nem cartão cortado.
 - [ ] 4.2 Confirmar que o texto introdutório abaixo do nome da empresa convida a escolher serviço, profissional, dia e horário e que nenhuma mensagem de "em breve" aparece; ajustar o texto atual ("Agende seu horário em poucos toques.") somente se ele não atender à spec. Verificar manualmente no celular e no desktop, com o app reiniciado.
 
 ## 5. Verificação integrada

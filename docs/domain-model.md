@@ -26,18 +26,17 @@ Representa um estabelecimento que usa o BeautyTime: salão de beleza, barbearia,
 ### Principais informações
 - nome;
 - identificador público usado na rota `/agendar/{identificador}`; contém 3 a 40 caracteres, somente letras minúsculas, números e hífen, sem hífens nas extremidades ou consecutivos;
-- telefone e endereço;
-- situação (ativa ou inativa).
+- telefone e endereço.
 
 ### Relacionamentos
 - Possui um ou mais administradores.
 - Possui vários profissionais, serviços e agendamentos.
-- Pode ser encontrada por clientes na lista pública de empresas ativas.
+- Pode ser encontrada por clientes na lista pública de salões, quando aceita reservas.
 
 ### Regras estruturais
 - O identificador do link é único entre todas as empresas e respeita o formato especificado acima.
 - Todos os profissionais, serviços e agendamentos pertencem a exatamente uma empresa.
-- Somente empresas ativas aparecem na lista pública de salões parceiros.
+- Uma empresa aceita reservas quando possui ao menos um serviço ativo vinculado a ao menos um profissional ativo da própria empresa. Somente essas empresas aparecem na lista pública de salões, que expõe apenas nome e identificador público.
 
 ---
 
@@ -76,7 +75,7 @@ Pessoa que agenda serviços.
 - A conta da cliente é da plataforma, não de uma empresa: a mesma cliente pode agendar em empresas diferentes com a mesma conta.
 - Nunca possui associação com uma empresa.
 - Só vê e cancela os próprios agendamentos.
-- Sua área permite consultar agendamentos próximos e passados, cancelá-los e encontrar empresas ativas na lista pública de salões parceiros.
+- Sua área permite consultar agendamentos próximos e passados, cancelá-los e encontrar, na lista pública de salões, as empresas que aceitam reservas.
 
 ---
 

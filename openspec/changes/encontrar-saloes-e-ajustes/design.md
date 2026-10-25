@@ -40,11 +40,15 @@ Adicionar a página `/saloes` ("Encontrar salões"), pública, com o mesmo cabe�
 
 ### Botões na área da cliente
 
-"Novo agendamento" fica no painel do topo de `/meus-agendamentos`, como link para `/saloes`. "Agendar de novo" entra em `_client_appointment_card` como link para `/agendar/{public_identifier}` do item, ao lado do botão de cancelar quando ele existir. Ao abrir a página pública por esse link, o fluxo começa do zero: `load_public_company` já reinicia as escolhas quando não há retomada pendente para a mesma empresa.
+"Novo agendamento" fica no painel do topo de `/meus-agendamentos`, como link para `/saloes`. "Agendar de novo" entra em `_client_appointment_card`, ao lado do botão de cancelar quando ele existir, e leva a `/agendar/{public_identifier}` do item.
+
+Ajuste feito na implementação: `load_public_company` retoma as escolhas sempre que já há um serviço escolhido para a mesma empresa (não só na volta do login). Com um link simples, uma cliente que tivesse começado e abandonado um agendamento naquele salão veria as escolhas antigas. Por isso "Agendar de novo" e o botão "Agendar" de `/saloes` chamam um evento que limpa o fluxo da empresa e então redireciona para `/agendar/{identificador}`, garantindo que o fluxo comece na escolha do serviço.
 
 ### Layout da página pública
 
-Alinhar `public_company_page` à estrutura das telas da cliente: manter `PAGE_STYLE` e a largura máxima de 720px, substituir o cartão externo com `CARD_STYLE` por `_panel`, e garantir `min_width="0"` e `width="100%"` nos contêineres flexíveis para que conteúdos largos (grade de dias, botões de horário, nomes longos) quebrem linha em vez de forçar largura maior que a tela. A causa exata do corte deve ser confirmada no navegador antes do ajuste, comparando com `/meus-agendamentos` no mesmo viewport.
+Causa confirmada na implementação, medindo o CSS gerado com emulação de celular: os estilos compartilhados `PAGE_STYLE`, `CARD_STYLE` e `_panel` definiam `padding` com dicionário responsivo (`{"initial": ..., "md": ...}`). No Reflex 0.10 esse formato só funciona em props do Radix (como `direction` e `columns`); em propriedades CSS ele gera uma regra inválida e o valor é ignorado. Por isso nenhuma tela tinha margem lateral, e não só a página pública.
+
+Decisão da responsável pelo projeto: corrigir somente os três estilos compartilhados, trocando o dicionário por `rx.breakpoints(...)`. Isso devolve as margens da página e o espaçamento interno de cartões e painéis em todas as telas. A estrutura de `public_company_page` não precisou mudar. Os demais usos de dicionário responsivo em propriedades CSS (larguras de botões e paddings de cartões específicos, como o cartão de serviço da página pública) ficam para outra change.
 
 ## Riscos / Trade-offs
 

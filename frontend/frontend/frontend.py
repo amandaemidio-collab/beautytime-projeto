@@ -93,13 +93,13 @@ PAGE_STYLE = {
     "min_height": "100vh",
     "background_color": COLORS["background"],
     "font_family": FONT_FAMILY,
-    "padding": {"initial": "28px 16px", "md": "56px 24px"},
+    "padding": rx.breakpoints(initial="28px 16px", md="56px 24px"),
     "overflow_x": "hidden",
 }
 CARD_STYLE = {
     "width": "100%",
     "max_width": "520px",
-    "padding": {"initial": "28px 20px", "md": "40px"},
+    "padding": rx.breakpoints(initial="28px 20px", md="40px"),
     "border": f"1px solid {COLORS['border']}",
     "border_radius": "24px",
     "background_color": COLORS["surface"],
@@ -383,6 +383,9 @@ class State(rx.State):
     cancel_target_late: bool = False
     cancel_submitting: bool = False
     cancel_error: str = ""
+    salons: list[dict[str, str]] = []
+    salons_loading: bool = False
+    salons_error: str = ""
 
     @rx.var
     def client_signed_in(self) -> bool:
@@ -1687,6 +1690,14 @@ class State(rx.State):
         if self.booking_service_id:
             return State.resume_booking
 
+    @rx.event
+    def start_fresh_booking(self, identifier: str):
+        """Open a salon's booking page with no choices carried over."""
+        if not IDENTIFIER_PATTERN.fullmatch(identifier):
+            return
+        self._reset_booking(identifier)
+        return rx.redirect(f"/agendar/{identifier}")
+
     def _reset_booking(self, identifier: str):
         self.booking_identifier = identifier
         self.booking_message = ""
@@ -2059,6 +2070,45 @@ class State(rx.State):
         yield
         self._refresh_client_appointments()
 
+    @rx.event
+    def load_salons(self):
+        """Load the public list of salons that accept bookings."""
+        self.salons = []
+        self.salons_error = ""
+        self.salons_loading = True
+        yield
+        self.salons_loading = False
+        status, data = request_json_list(
+            "GET", api_url("members_accounts", "companies/public")
+        )
+        if status != 200 or not isinstance(data, list):
+            self.salons_error = (
+                _api_error(status, data)
+                if status == 429
+                else "Não foi possível carregar os salões. Recarregue a página "
+                "para tentar novamente."
+            )
+            return
+        salons: list[dict[str, str]] = []
+        for item in data:
+            name = item.get("name") if isinstance(item, dict) else None
+            identifier = (
+                item.get("public_identifier") if isinstance(item, dict) else None
+            )
+            if (
+                not isinstance(name, str)
+                or not name.strip()
+                or not isinstance(identifier, str)
+                or not IDENTIFIER_PATTERN.fullmatch(identifier)
+            ):
+                self.salons_error = (
+                    "A lista de salões veio em formato inválido. Recarregue a "
+                    "página para tentar novamente."
+                )
+                return
+            salons.append({"name": name.strip(), "identifier": identifier})
+        self.salons = salons
+
     def _refresh_client_appointments(self):
         self.client_appointments_loading = False
         status, data = request_json_list(
@@ -2399,7 +2449,7 @@ def _panel(*children: rx.Component, **props: object) -> rx.Component:
     return rx.box(
         rx.vstack(*children, align="stretch", spacing="3", width="100%"),
         width="100%",
-        padding={"initial": "18px", "sm": "22px"},
+        padding=rx.breakpoints(initial="18px", sm="22px"),
         border=f"1px solid {COLORS['border']}",
         border_radius="18px",
         background_color=COLORS["surface"],
@@ -2478,17 +2528,37 @@ def _client_appointment_card(appointment: rx.Var[dict[str, Any]]) -> rx.Componen
             ),
             rx.fragment(),
         ),
-        rx.cond(
-            appointment["can_cancel"],
-            rx.button(
-                "Cancelar agendamento",
-                on_click=State.open_cancel_dialog(appointment["id"]),
-                variant="outline",
-                color_scheme="ruby",
-                width={"initial": "100%", "sm": "auto"},
-                height="44px",
+        rx.flex(
+            rx.cond(
+                appointment["public_identifier"] != "",
+                rx.button(
+                    "Agendar de novo",
+                    on_click=State.start_fresh_booking(
+                        appointment["public_identifier"]
+                    ),
+                    variant="outline",
+                    color=COLORS["accent"],
+                    width={"initial": "100%", "sm": "auto"},
+                    height="44px",
+                    aria_label=f"Agendar de novo em {appointment['company_name']}",
+                ),
+                rx.fragment(),
             ),
-            rx.fragment(),
+            rx.cond(
+                appointment["can_cancel"],
+                rx.button(
+                    "Cancelar agendamento",
+                    on_click=State.open_cancel_dialog(appointment["id"]),
+                    variant="outline",
+                    color_scheme="ruby",
+                    width={"initial": "100%", "sm": "auto"},
+                    height="44px",
+                ),
+                rx.fragment(),
+            ),
+            direction={"initial": "column", "sm": "row"},
+            spacing="3",
+            width="100%",
         ),
     )
 
@@ -2608,6 +2678,17 @@ def client_appointments_page() -> rx.Component:
                     rx.text(f"Olá, {State.user_name}.", color=COLORS["muted"]),
                     rx.fragment(),
                 ),
+                rx.link(
+                    rx.button(
+                        "Novo agendamento",
+                        width="100%",
+                        height="48px",
+                        background_color=COLORS["accent"],
+                        color=COLORS["surface"],
+                    ),
+                    href="/saloes",
+                    width={"initial": "100%", "sm": "auto"},
+                ),
                 _policy_callout(),
             ),
             rx.cond(
@@ -2634,8 +2715,8 @@ def client_appointments_page() -> rx.Component:
                         _client_appointment_list(
                             "Próximos",
                             State.client_upcoming,
-                            "Você não tem agendamentos futuros. Use o link de um "
-                            "salão para agendar.",
+                            "Você não tem agendamentos futuros. Use “Novo "
+                            "agendamento” para encontrar um salão.",
                         ),
                         _client_appointment_list(
                             "Passados",
@@ -2649,6 +2730,95 @@ def client_appointments_page() -> rx.Component:
                 ),
             ),
             _cancel_dialog(),
+            align="stretch",
+            spacing="5",
+            width="100%",
+            max_width="720px",
+        ),
+        display="flex",
+        justify_content="center",
+        style=PAGE_STYLE,
+    )
+
+
+def _salon_card(salon: rx.Var[dict[str, str]]) -> rx.Component:
+    return _panel(
+        rx.flex(
+            rx.heading(
+                salon["name"],
+                size="4",
+                color=COLORS["text"],
+                overflow_wrap="anywhere",
+                flex="1",
+                min_width="0",
+            ),
+            rx.button(
+                "Agendar",
+                on_click=State.start_fresh_booking(salon["identifier"]),
+                width={"initial": "100%", "sm": "auto"},
+                height="44px",
+                background_color=COLORS["accent"],
+                color=COLORS["surface"],
+                aria_label=f"Agendar em {salon['name']}",
+            ),
+            direction={"initial": "column", "sm": "row"},
+            align={"initial": "stretch", "sm": "center"},
+            justify="between",
+            spacing="3",
+            width="100%",
+        ),
+    )
+
+
+def salons_page() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.flex(
+                rx.link(_brand(), href="/", underline="none"),
+                rx.cond(
+                    State.client_signed_in,
+                    rx.link("Meus agendamentos", href="/meus-agendamentos"),
+                    rx.fragment(),
+                ),
+                justify="between",
+                align="center",
+                width="100%",
+            ),
+            _panel(
+                rx.heading(
+                    "Encontrar salões",
+                    size={"initial": "6", "sm": "7"},
+                    color=COLORS["text"],
+                ),
+                rx.text(
+                    "Escolha um salão para ver os serviços e agendar seu horário.",
+                    color=COLORS["muted"],
+                ),
+            ),
+            rx.cond(
+                State.salons_loading,
+                rx.text("Carregando salões...", color=COLORS["muted"]),
+                rx.cond(
+                    State.salons_error != "",
+                    rx.text(
+                        State.salons_error,
+                        role="alert",
+                        color=COLORS["error"],
+                    ),
+                    rx.cond(
+                        State.salons.length() == 0,
+                        _empty_box(
+                            "Ainda não há salões disponíveis para agendamento."
+                        ),
+                        rx.vstack(
+                            rx.foreach(State.salons, _salon_card),
+                            align="stretch",
+                            spacing="3",
+                            width="100%",
+                        ),
+                    ),
+                ),
+            ),
             align="stretch",
             spacing="5",
             width="100%",
@@ -4527,7 +4697,8 @@ def public_company_page() -> rx.Component:
                                 overflow_wrap="anywhere",
                             ),
                             rx.text(
-                                "Agende seu horário em poucos toques.",
+                                "Escolha o serviço, o profissional, o dia e o "
+                                "horário para fazer seu agendamento.",
                                 color=COLORS["muted"],
                             ),
                             rx.cond(
@@ -4629,6 +4800,12 @@ app.add_page(
     route="/meus-agendamentos",
     title="Meus agendamentos",
     on_load=State.load_client_appointments,
+)
+app.add_page(
+    salons_page,
+    route="/saloes",
+    title="Encontrar salões",
+    on_load=State.load_salons,
 )
 app.add_page(
     client_appointments_page,
