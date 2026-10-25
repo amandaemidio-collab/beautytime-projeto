@@ -48,7 +48,7 @@ O sistema SHALL associar cada conta de administrador a exatamente uma empresa e 
 - **THEN** o sistema rejeita a operação e mantém sua associação única original
 
 ### Requirement: Cliente e administrador entram pelo fluxo correspondente
-O sistema SHALL autenticar clientes e administradores com e-mail e senha e SHALL disponibilizar, após autenticação bem-sucedida, a identidade e o tipo da conta sem expor a senha ou seu hash.
+O sistema SHALL autenticar clientes e administradores com e-mail e senha e SHALL disponibilizar, após autenticação bem-sucedida, a identidade e o tipo da conta sem expor a senha ou seu hash. Após login ou cadastro, a interface SHALL encaminhar cada tipo de conta ao destino correspondente.
 
 #### Scenario: Login válido
 - **WHEN** uma conta envia e-mail e senha corretos pelo fluxo correspondente ao seu tipo
@@ -56,7 +56,11 @@ O sistema SHALL autenticar clientes e administradores com e-mail e senha e SHALL
 
 #### Scenario: Boas-vindas após login
 - **WHEN** uma cliente ou administradora conclui o login com sucesso
-- **THEN** a interface a leva a uma página simples de boas-vindas, sem painel administrativo ou funcionalidades de agendamento
+- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à página `/boas-vindas`
+
+#### Scenario: Destino após cadastro
+- **WHEN** uma cliente ou administradora conclui o cadastro com sucesso
+- **THEN** a administradora é encaminhada ao painel inicial `/admin` e a cliente à página `/boas-vindas`
 
 #### Scenario: Credenciais inválidas
 - **WHEN** uma conta envia e-mail inexistente, senha incorreta ou credenciais de tipo incompatível
