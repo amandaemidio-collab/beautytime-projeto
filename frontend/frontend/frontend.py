@@ -19,6 +19,20 @@ from frontend.theme import (
 )
 
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+
+
+def _duration_label(minutes: int) -> str:
+    hours, remainder = divmod(minutes, 60)
+    if not hours:
+        return f"{minutes} min"
+    if not remainder:
+        return f"{hours}h"
+    return f"{hours}h {remainder}min"
+
+
+DURATION_OPTIONS = [
+    (str(minutes), _duration_label(minutes)) for minutes in range(15, 481, 15)
+]
 PAGE_STYLE = {
     "min_height": "100vh",
     "background_color": COLORS["background"],
@@ -1023,6 +1037,50 @@ def _service_form_field(
     )
 
 
+def _service_duration_field(
+    value: rx.Var[str],
+    on_change: rx.EventHandler,
+    error: rx.Var[str],
+) -> rx.Component:
+    return rx.vstack(
+        rx.text(
+            "Duração",
+            size="2",
+            weight="medium",
+            color=COLORS["text"],
+        ),
+        rx.select.root(
+            rx.select.trigger(
+                placeholder="Selecione a duração",
+                width="100%",
+                style=FORM_FIELD_STYLE,
+            ),
+            rx.select.content(
+                rx.select.group(
+                    *[
+                        rx.select.item(label, value=minutes)
+                        for minutes, label in DURATION_OPTIONS
+                    ]
+                )
+            ),
+            name="service_duration",
+            value=value,
+            on_change=on_change,
+            size="3",
+            width="100%",
+        ),
+        rx.text(
+            error,
+            role="alert",
+            size="2",
+            color=COLORS["error"],
+        ),
+        align="stretch",
+        spacing="2",
+        width="100%",
+    )
+
+
 def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
     return rx.box(
         rx.flex(
@@ -1171,17 +1229,10 @@ def admin_services_page() -> rx.Component:
                                 max_length=80,
                                 placeholder="Ex.: Corte feminino",
                             ),
-                            _service_form_field(
-                                "Duração (minutos)",
-                                "service_duration",
+                            _service_duration_field(
                                 State.service_duration,
                                 State.set_service_duration,
                                 State.service_duration_error,
-                                type="number",
-                                min=15,
-                                max=480,
-                                step=15,
-                                placeholder="Ex.: 45",
                             ),
                             _service_form_field(
                                 "Preço (R$)",
