@@ -1,6 +1,7 @@
 """BeautyTime booking, account, and public-company pages."""
 
 import re
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import unquote, urlencode
 
@@ -224,6 +225,17 @@ class State(rx.State):
     public_company_identifier: str = ""
     public_company_message: str = ""
     public_company_found: bool = False
+    service_items: list[dict[str, Any]] = []
+    services_loading: bool = False
+    services_error: str = ""
+    services_notice: str = ""
+    editing_service_id: int = 0
+    service_name: str = ""
+    service_duration: str = ""
+    service_price: str = ""
+    service_name_error: str = ""
+    service_duration_error: str = ""
+    service_price_error: str = ""
 
     @rx.event
     def clear_message(self):
@@ -393,7 +405,7 @@ class State(rx.State):
         else:
             self.company_name = company_name
             self.company_identifier = identifier
-        return rx.redirect("/boas-vindas")
+        return rx.redirect("/admin/servicos")
 
     @rx.event
     def admin_login(self, form_data: dict[str, Any]):
@@ -418,7 +430,7 @@ class State(rx.State):
         self._auth_token = token
         if not self._load_identity("admin"):
             return
-        return rx.redirect("/boas-vindas")
+        return rx.redirect("/admin/servicos")
 
     @rx.event
     def load_welcome(self):
@@ -437,8 +449,247 @@ class State(rx.State):
         self.user_role = ""
         self.company_name = ""
         self.company_identifier = ""
+        self.service_items = []
         self.message = ""
         return rx.redirect("/")
+
+    def _refresh_admin_catalog(self) -> bool:
+        status, data = request_json(
+            "GET",
+            api_url("catalogo", "admin/services"),
+            token=self._auth_token,
+        )
+        if status != 200:
+            self.services_error = _api_error(status, data)
+            self.service_items = []
+            return False
+
+        company = data.get("company")
+        services = data.get("services")
+        if not isinstance(company, dict) or not isinstance(services, list):
+            self.services_error = "A API retornou dados inválidos para o catálogo."
+            self.service_items = []
+            return False
+
+        self.company_name = str(company.get("name", ""))
+        self.company_identifier = str(company.get("public_identifier", ""))
+        self.service_items = []
+        for item in services:
+            if not isinstance(item, dict):
+                continue
+            duration = int(item["duration_minutes"])
+            hours, minutes = divmod(duration, 60)
+            if hours and minutes:
+                duration_display = f"{hours}h {minutes}min"
+            elif hours:
+                duration_display = f"{hours}h"
+            else:
+                duration_display = f"{minutes} min"
+            price_cents = int(item["price_cents"])
+            self.service_items.append(
+                {
+                    **item,
+                    "duration_display": duration_display,
+                    "price_display": (
+                        f"R$ {price_cents // 100},{price_cents % 100:02d}"
+                    ),
+                }
+            )
+        self.services_error = ""
+        return True
+
+    @rx.event
+    def load_admin_services(self):
+        self.services_loading = True
+        self.services_error = ""
+        self.services_notice = ""
+        if not self._auth_token:
+            self.service_items = []
+            self.services_loading = False
+            return rx.redirect("/admin/login")
+        if not self._load_identity("admin"):
+            self.service_items = []
+            self.services_loading = False
+            return rx.redirect("/admin/login")
+
+        self._refresh_admin_catalog()
+        self.services_loading = False
+
+    @rx.event
+    def begin_service_edit(
+        self,
+        service_id: int,
+        name: str,
+        duration_minutes: int,
+        price_cents: int,
+    ):
+        self.editing_service_id = service_id
+        self.service_name = name
+        self.service_duration = str(duration_minutes)
+        self.service_price = (
+            f"{price_cents // 100}.{price_cents % 100:02d}"
+        )
+        self.services_notice = ""
+        self.service_name_error = ""
+        self.service_duration_error = ""
+        self.service_price_error = ""
+
+    @rx.event
+    def cancel_service_edit(self):
+        self.editing_service_id = 0
+        self.service_name = ""
+        self.service_duration = ""
+        self.service_price = ""
+        self.service_name_error = ""
+        self.service_duration_error = ""
+        self.service_price_error = ""
+        self.services_notice = ""
+
+    @rx.event
+    def set_service_name(self, value: str):
+        self.service_name = value
+
+    @rx.event
+    def set_service_duration(self, value: str):
+        self.service_duration = value
+
+    @rx.event
+    def set_service_price(self, value: str):
+        self.service_price = value
+
+    @rx.event
+    def submit_service(self, form_data: dict[str, Any]):
+        self.services_notice = ""
+        self.services_error = ""
+        self.service_name = str(form_data.get("service_name", "")).strip()
+        self.service_duration = str(form_data.get("service_duration", "")).strip()
+        self.service_price = str(form_data.get("service_price", "")).strip()
+        self.service_name_error = ""
+        self.service_duration_error = ""
+        self.service_price_error = ""
+
+        name = self.service_name
+        if not 2 <= len(name) <= 80:
+            self.service_name_error = "Use um nome de 2 a 80 caracteres."
+
+        try:
+            duration = Decimal(self.service_duration)
+            if (
+                not duration.is_finite()
+                or duration != duration.to_integral_value()
+                or duration < 15
+                or duration > 480
+                or duration % 15 != 0
+            ):
+                self.service_duration_error = (
+                    "Informe um número inteiro múltiplo de 15, entre 15 e 480."
+                )
+        except InvalidOperation:
+            self.service_duration_error = (
+                "Informe um número inteiro múltiplo de 15, entre 15 e 480."
+            )
+
+        price_text = self.service_price.replace(",", ".")
+        try:
+            price = Decimal(price_text)
+            if (
+                not price.is_finite()
+                or price < 0
+                or price > Decimal("99999.99")
+                or price != price.quantize(Decimal("0.01"))
+            ):
+                self.service_price_error = (
+                    "Informe um preço entre R$ 0,00 e R$ 99.999,99."
+                )
+        except InvalidOperation:
+            self.service_price_error = (
+                "Informe um preço entre R$ 0,00 e R$ 99.999,99."
+            )
+
+        if (
+            self.service_name_error
+            or self.service_duration_error
+            or self.service_price_error
+        ):
+            return
+
+        payload = {
+            "name": name,
+            "duration_minutes": int(duration),
+            "price_cents": int(price * 100),
+        }
+        if self.editing_service_id:
+            method = "PATCH"
+            path = f"admin/services/{self.editing_service_id}"
+        else:
+            method = "POST"
+            path = "admin/services"
+
+        status, data = request_json(
+            method,
+            api_url("catalogo", path),
+            payload,
+            token=self._auth_token,
+        )
+        if status not in (200, 201):
+            error = str(data.get("message", ""))
+            if error == "service_name_taken":
+                self.service_name_error = "Este nome já está em uso nesta empresa."
+            elif error == "service_name_invalid":
+                self.service_name_error = "Use um nome de 2 a 80 caracteres."
+            elif error == "service_duration_invalid":
+                self.service_duration_error = (
+                    "Informe um número inteiro múltiplo de 15, entre 15 e 480."
+                )
+            elif error == "service_price_invalid":
+                self.service_price_error = (
+                    "Informe um preço entre R$ 0,00 e R$ 99.999,99."
+                )
+            else:
+                self.services_error = _api_error(status, data)
+            return
+
+        self.services_notice = (
+            "Serviço atualizado com sucesso."
+            if method == "PATCH"
+            else "Serviço cadastrado com sucesso."
+        )
+        self.editing_service_id = 0
+        self.service_name = ""
+        self.service_duration = ""
+        self.service_price = ""
+        self._refresh_admin_catalog()
+
+    @rx.event
+    def toggle_service_status(self, service_id: int):
+        service = next(
+            (
+                item
+                for item in self.service_items
+                if item.get("id") == service_id
+            ),
+            None,
+        )
+        if service is None:
+            self.services_error = "O serviço não está mais disponível na lista."
+            return
+
+        status, data = request_json(
+            "PATCH",
+            api_url("catalogo", f"admin/services/{service_id}/status"),
+            {"is_active": not bool(service.get("is_active"))},
+            token=self._auth_token,
+        )
+        if status != 200:
+            self.services_error = _api_error(status, data)
+            return
+
+        self.services_notice = (
+            "Serviço ativado."
+            if data.get("is_active")
+            else "Serviço desativado."
+        )
+        self._refresh_admin_catalog()
 
     @rx.event
     def load_public_company(self):
@@ -737,6 +988,342 @@ def welcome_page() -> rx.Component:
     )
 
 
+def _service_form_field(
+    label: str,
+    name: str,
+    value: rx.Var[str],
+    on_change: rx.EventHandler,
+    error: rx.Var[str],
+    **input_props: object,
+) -> rx.Component:
+    error_id = f"{name}-error"
+    return rx.vstack(
+        rx.text(label, size="2", weight="medium", color=COLORS["text"]),
+        rx.input(
+            name=name,
+            value=value,
+            on_change=on_change,
+            width="100%",
+            size="3",
+            style=FORM_FIELD_STYLE,
+            aria_invalid=error != "",
+            aria_described_by=error_id,
+            **input_props,
+        ),
+        rx.text(
+            error,
+            id=error_id,
+            role="alert",
+            size="2",
+            color=COLORS["error"],
+        ),
+        align="stretch",
+        spacing="2",
+        width="100%",
+    )
+
+
+def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
+    return rx.box(
+        rx.flex(
+            rx.vstack(
+                rx.flex(
+                    rx.heading(
+                        service["name"],
+                        size="4",
+                        color=COLORS["text"],
+                        min_width=0,
+                        overflow_wrap="anywhere",
+                    ),
+                    rx.badge(
+                        rx.cond(service["is_active"], "Ativo", "Inativo"),
+                        color_scheme=rx.cond(
+                            service["is_active"], "green", "gray"
+                        ),
+                    ),
+                    align="center",
+                    wrap="wrap",
+                    spacing="3",
+                ),
+                rx.text(
+                    service["duration_display"],
+                    color=COLORS["muted"],
+                    size="2",
+                ),
+                rx.text(
+                    service["price_display"],
+                    color=COLORS["text"],
+                    weight="bold",
+                    size="4",
+                ),
+                align="start",
+                spacing="2",
+                flex="1",
+            ),
+            rx.flex(
+                rx.button(
+                    "Editar",
+                    on_click=State.begin_service_edit(
+                        service["id"],
+                        service["name"],
+                        service["duration_minutes"],
+                        service["price_cents"],
+                    ),
+                    variant="outline",
+                    height="44px",
+                    color=COLORS["accent"],
+                    border_color=COLORS["border"],
+                    _hover={"background_color": COLORS["background"]},
+                ),
+                rx.button(
+                    rx.cond(service["is_active"], "Desativar", "Reativar"),
+                    on_click=State.toggle_service_status(service["id"]),
+                    height="44px",
+                    background_color=COLORS["accent"],
+                    color=COLORS["surface"],
+                    _hover={"background_color": COLORS["accent_hover"]},
+                ),
+                direction={"initial": "column", "sm": "row"},
+                spacing="2",
+                width={"initial": "100%", "sm": "auto"},
+            ),
+            direction={"initial": "column", "sm": "row"},
+            align={"initial": "stretch", "sm": "center"},
+            spacing="4",
+            width="100%",
+        ),
+        width="100%",
+        padding={"initial": "18px", "sm": "22px"},
+        border=f"1px solid {COLORS['border']}",
+        border_radius="18px",
+        background_color=COLORS["surface"],
+        box_shadow=SHADOWS["tile"],
+    )
+
+
+def admin_services_page() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.flex(
+                _brand(),
+                rx.button(
+                    "Sair",
+                    on_click=State.logout,
+                    variant="outline",
+                    height="44px",
+                    color=COLORS["accent"],
+                    border_color=COLORS["border"],
+                ),
+                justify="between",
+                align="center",
+                width="100%",
+                wrap="wrap",
+                spacing="3",
+            ),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        "Serviços da empresa",
+                        size={"initial": "6", "sm": "7"},
+                        color=COLORS["text"],
+                    ),
+                    rx.text(State.company_name, color=COLORS["muted"]),
+                    rx.link(
+                        rx.text(
+                            f"/agendar/{State.company_identifier}",
+                            word_break="break-all",
+                        ),
+                        href=f"/agendar/{State.company_identifier}",
+                        color=COLORS["accent"],
+                    ),
+                    align="stretch",
+                    spacing="2",
+                    width="100%",
+                ),
+                width="100%",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["tile"],
+            ),
+            rx.box(
+                rx.vstack(
+                    rx.heading(
+                        rx.cond(
+                            State.editing_service_id > 0,
+                            "Editar serviço",
+                            "Cadastrar serviço",
+                        ),
+                        size="5",
+                        color=COLORS["text"],
+                    ),
+                    rx.form(
+                        rx.vstack(
+                            _service_form_field(
+                                "Nome",
+                                "service_name",
+                                State.service_name,
+                                State.set_service_name,
+                                State.service_name_error,
+                                type="text",
+                                min_length=2,
+                                max_length=80,
+                                placeholder="Ex.: Corte feminino",
+                            ),
+                            _service_form_field(
+                                "Duração (minutos)",
+                                "service_duration",
+                                State.service_duration,
+                                State.set_service_duration,
+                                State.service_duration_error,
+                                type="number",
+                                min=15,
+                                max=480,
+                                step=15,
+                                placeholder="Ex.: 45",
+                            ),
+                            _service_form_field(
+                                "Preço (R$)",
+                                "service_price",
+                                State.service_price,
+                                State.set_service_price,
+                                State.service_price_error,
+                                type="number",
+                                min=0,
+                                max="99999.99",
+                                step="0.01",
+                                placeholder="Ex.: 75,00",
+                            ),
+                            rx.text(
+                                State.services_error,
+                                role="alert",
+                                color=COLORS["error"],
+                                size="2",
+                            ),
+                            rx.text(
+                                State.services_notice,
+                                role="status",
+                                color=COLORS["accent"],
+                                size="2",
+                            ),
+                            rx.flex(
+                                rx.button(
+                                    rx.cond(
+                                        State.editing_service_id > 0,
+                                        "Salvar alterações",
+                                        "Cadastrar serviço",
+                                    ),
+                                    type="submit",
+                                    height="52px",
+                                    width={"initial": "100%", "sm": "auto"},
+                                    background_color=COLORS["accent"],
+                                    color=COLORS["surface"],
+                                    _hover={
+                                        "background_color": COLORS["accent_hover"]
+                                    },
+                                ),
+                                rx.cond(
+                                    State.editing_service_id > 0,
+                                    rx.button(
+                                        "Cancelar edição",
+                                        type="button",
+                                        on_click=State.cancel_service_edit,
+                                        variant="outline",
+                                        height="52px",
+                                        width={"initial": "100%", "sm": "auto"},
+                                        color=COLORS["accent"],
+                                        border_color=COLORS["border"],
+                                    ),
+                                    rx.box(),
+                                ),
+                                direction={"initial": "column", "sm": "row"},
+                                spacing="3",
+                                width="100%",
+                            ),
+                            align="stretch",
+                            spacing="4",
+                            width="100%",
+                        ),
+                        id="service-form",
+                        on_submit=State.submit_service,
+                        reset_on_submit=False,
+                        width="100%",
+                    ),
+                    align="stretch",
+                    spacing="4",
+                    width="100%",
+                ),
+                width="100%",
+                padding={"initial": "20px", "sm": "26px"},
+                border=f"1px solid {COLORS['border']}",
+                border_radius="20px",
+                background_color=COLORS["surface"],
+                box_shadow=SHADOWS["card"],
+            ),
+            rx.vstack(
+                rx.heading("Catálogo", size="5", color=COLORS["text"]),
+                rx.cond(
+                    State.services_loading,
+                    rx.text("Carregando serviços...", color=COLORS["muted"]),
+                    rx.cond(
+                        State.services_error != "",
+                        rx.text(
+                            State.services_error,
+                            role="alert",
+                            color=COLORS["error"],
+                        ),
+                        rx.cond(
+                            State.service_items.length() == 0,
+                            rx.box(
+                                rx.vstack(
+                                    rx.text(
+                                        "Sua empresa ainda não tem serviços cadastrados.",
+                                        color=COLORS["muted"],
+                                    ),
+                                    rx.link(
+                                        rx.button(
+                                            "Cadastrar o primeiro serviço",
+                                            height="48px",
+                                            background_color=COLORS["accent"],
+                                            color=COLORS["surface"],
+                                        ),
+                                        href="#service-form",
+                                        width="100%",
+                                    ),
+                                    align="stretch",
+                                    spacing="3",
+                                    width="100%",
+                                ),
+                                width="100%",
+                                padding="22px",
+                                border=f"1px dashed {COLORS['border']}",
+                                border_radius="16px",
+                            ),
+                            rx.vstack(
+                                rx.foreach(State.service_items, _service_card),
+                                align="stretch",
+                                spacing="3",
+                                width="100%",
+                            ),
+                        ),
+                    ),
+                ),
+                align="stretch",
+                spacing="4",
+                width="100%",
+            ),
+            align="stretch",
+            spacing="5",
+            width="100%",
+            max_width="820px",
+        ),
+        display="flex",
+        justify_content="center",
+        style=PAGE_STYLE,
+    )
+
+
 def public_company_page() -> rx.Component:
     return rx.box(
         rx.vstack(
@@ -821,6 +1408,12 @@ app.add_page(
     route="/admin/login",
     title="Entrar como administradora",
     on_load=State.clear_message,
+)
+app.add_page(
+    admin_services_page,
+    route="/admin/servicos",
+    title="Serviços da empresa",
+    on_load=State.load_admin_services,
 )
 app.add_page(
     welcome_page,

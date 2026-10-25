@@ -3,6 +3,7 @@
 API_BASE_URLS = {
     "authentication": "https://x8ki-letl-twmt.n7.xano.io/api:2v0zlfeT",
     "members_accounts": "https://x8ki-letl-twmt.n7.xano.io/api:EYm7vjJ1",
+    "catalogo": "https://x8ki-letl-twmt.n7.xano.io/api:beautytime-catalogo",
 }
 
 
