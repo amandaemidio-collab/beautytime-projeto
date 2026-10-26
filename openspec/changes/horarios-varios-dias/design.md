@@ -39,7 +39,7 @@ No grupo `Agenda`, com entradas `days_of_week` (lista de inteiros), `start_minut
 1. Autorizar com `Catalogo/authorize_admin` e buscar o profissional ativo da empresa da sessão (404 se não pertencer a ela), como em `hours_POST.xs`.
 2. Validar a lista: ao menos 1 e no máximo 7 dias, cada um entre 1 e 7, sem repetição (`count` igual ao `count` após `unique`).
 3. Validar o intervalo com a mesma regra do cadastro individual.
-4. Para cada dia, em ordem crescente, chamar `Agenda/find_hours_overlap`; no primeiro conflito, interromper com erro que identifica o dia.
+4. Para cada dia, na ordem recebida (a tela envia em ordem crescente), chamar `Agenda/find_hours_overlap`; no primeiro conflito, interromper com erro que identifica o dia.
 5. Só então, dentro de `db.transaction`, criar um registro por dia e responder a lista criada.
 
 Como todas as checagens acontecem antes da primeira gravação, uma falha de validação não cria nada; a transação cobre falhas inesperadas durante as gravações. A sintaxe de lista de inteiros, `unique`, `db.transaction` e o formato do erro devem ser confirmados no Xano Developer MCP.

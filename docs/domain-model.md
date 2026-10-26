@@ -146,6 +146,8 @@ Os períodos se repetem semanalmente e representam horários locais no fuso `Ame
 
 ### Regras estruturais
 - A empresa define livremente os períodos de atendimento; não há limite de horas diárias.
+- Os períodos de um mesmo profissional no mesmo dia não podem se sobrepor. Períodos que apenas se encostam, como das 9h às 12h e das 12h às 18h, são permitidos.
+- Um mesmo período (mesmo início e término) pode ser cadastrado em vários dias da semana de uma vez; a operação é tudo ou nada.
 - Só é possível agendar dentro de um desses períodos.
 
 ---

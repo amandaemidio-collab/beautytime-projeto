@@ -136,6 +136,23 @@ def _api_error(status: int, data: dict[str, object]) -> str:
     return f"Não foi possível concluir a solicitação (HTTP {status})."
 
 
+def _hours_api_error(
+    status: int,
+    data: dict[str, object] | list[object],
+    bulk: bool = False,
+) -> str:
+    """Name the conflicting day when the backend rejects an overlapping period."""
+    message = str(data.get("message", "")) if isinstance(data, dict) else ""
+    prefix = "hours_overlap:"
+    if status == 400 and message.startswith(prefix):
+        day_label = dict(WEEKDAY_OPTIONS).get(message[len(prefix):], "Um dos dias")
+        text = f"{day_label} já tem um período que se sobrepõe a este horário."
+        return f"{text} Nenhum período foi cadastrado." if bulk else text
+    if not isinstance(data, dict):
+        data = {}
+    return _api_error(status, data)
+
+
 def _identifier_error(data: dict[str, object]) -> str | None:
     """Return a field-specific message when Xano rejects a public identifier."""
     message = str(data.get("message", "")).lower()
@@ -340,6 +357,7 @@ class State(rx.State):
     hour_items: list[dict[str, Any]] = []
     editing_hour_id: int = 0
     hours_day: str = "1"
+    hours_days: list[str] = []
     hours_start: str = "09:00"
     hours_end: str = "18:00"
     agenda_loading: bool = False
@@ -1084,12 +1102,35 @@ class State(rx.State):
             self.hours_error = "Selecione um profissional ativo da empresa."
             return
         self.selected_hours_professional_id = professional_id
-        self.editing_hour_id = 0
         self.hours_notice = ""
+        self._reset_hours_form()
+        return State.load_professional_hours(int(professional_id))
+
+    def _reset_hours_form(self):
+        self.editing_hour_id = 0
         self.hours_day = "1"
+        self.hours_days = []
         self.hours_start = "09:00"
         self.hours_end = "18:00"
-        return State.load_professional_hours(int(professional_id))
+
+    @rx.var
+    def hours_all_days(self) -> bool:
+        return len(set(self.hours_days)) == len(WEEKDAY_OPTIONS)
+
+    @rx.event
+    def toggle_hours_day(self, day: str, checked: bool):
+        if day not in dict(WEEKDAY_OPTIONS):
+            return
+        selected = set(self.hours_days)
+        if checked:
+            selected.add(day)
+        else:
+            selected.discard(day)
+        self.hours_days = sorted(selected, key=int)
+
+    @rx.event
+    def toggle_all_hours_days(self, checked: bool):
+        self.hours_days = [value for value, _ in WEEKDAY_OPTIONS] if checked else []
 
     @rx.event
     def load_professional_hours(self, professional_id: int):
@@ -1169,10 +1210,7 @@ class State(rx.State):
 
     @rx.event
     def cancel_hour_edit(self):
-        self.editing_hour_id = 0
-        self.hours_day = "1"
-        self.hours_start = "09:00"
-        self.hours_end = "18:00"
+        self._reset_hours_form()
         self.hours_error = ""
         self.hours_notice = ""
 
@@ -1192,13 +1230,18 @@ class State(rx.State):
     def submit_hour(self, form_data: dict[str, Any]):
         self.hours_error = ""
         self.hours_notice = ""
+        editing = bool(self.editing_hour_id)
         day = str(form_data.get("day_of_week", self.hours_day))
+        days = [value for value, _ in WEEKDAY_OPTIONS if value in self.hours_days]
         start_text = str(form_data.get("start_time", self.hours_start)).strip()
         end_text = str(form_data.get("end_time", self.hours_end)).strip()
         start_minute = _parse_time(start_text)
         end_minute = _parse_time(end_text)
-        if day not in dict(WEEKDAY_OPTIONS):
+        if editing and day not in dict(WEEKDAY_OPTIONS):
             self.hours_error = "Selecione um dia da semana válido."
+            return
+        if not editing and not days:
+            self.hours_error = "Marque ao menos um dia da semana."
             return
         if (
             start_minute is None
@@ -1214,42 +1257,41 @@ class State(rx.State):
             self.hours_error = "Selecione um profissional ativo."
             return
 
-        payload = {
-            "day_of_week": int(day),
-            "start_minute": start_minute,
-            "end_minute": end_minute,
-        }
-        if self.editing_hour_id:
-            method = "PATCH"
-            path = (
-                f"admin/professionals/{self.selected_hours_professional_id}"
-                f"/hours/{self.editing_hour_id}"
+        base_path = f"admin/professionals/{self.selected_hours_professional_id}/hours"
+        if editing:
+            status, data = request_json(
+                "PATCH",
+                api_url("agenda", f"{base_path}/{self.editing_hour_id}"),
+                {
+                    "day_of_week": int(day),
+                    "start_minute": start_minute,
+                    "end_minute": end_minute,
+                },
+                token=self._auth_token,
             )
         else:
-            method = "POST"
-            path = (
-                f"admin/professionals/{self.selected_hours_professional_id}"
-                "/hours"
+            # One request for all marked days; the backend creates all or none.
+            status, data = request_json_list(
+                "POST",
+                api_url("agenda", f"{base_path}/bulk"),
+                {
+                    "days_of_week": [int(value) for value in days],
+                    "start_minute": start_minute,
+                    "end_minute": end_minute,
+                },
+                token=self._auth_token,
             )
-        status, data = request_json(
-            method,
-            api_url("agenda", path),
-            payload,
-            token=self._auth_token,
-        )
         if status not in (200, 201):
-            self.hours_error = _api_error(status, data)
+            self.hours_error = _hours_api_error(status, data, bulk=not editing)
             return
 
-        self.hours_notice = (
-            "Período atualizado com sucesso."
-            if method == "PATCH"
-            else "Período cadastrado com sucesso."
-        )
-        self.editing_hour_id = 0
-        self.hours_day = "1"
-        self.hours_start = "09:00"
-        self.hours_end = "18:00"
+        if editing:
+            self.hours_notice = "Período atualizado com sucesso."
+        elif len(days) == 1:
+            self.hours_notice = "Período cadastrado com sucesso."
+        else:
+            self.hours_notice = f"Período cadastrado em {len(days)} dias."
+        self._reset_hours_form()
         return State.load_professional_hours(
             int(self.selected_hours_professional_id)
         )
@@ -3177,6 +3219,69 @@ def _agenda_card(appointment: rx.Var[dict[str, Any]]) -> rx.Component:
     )
 
 
+def _hours_single_day_field() -> rx.Component:
+    """Day picker used when editing one existing period."""
+    return rx.vstack(
+        rx.text("Dia da semana", size="2", weight="medium", color=COLORS["text"]),
+        rx.select.root(
+            rx.select.trigger(width="100%"),
+            rx.select.content(
+                rx.select.group(
+                    *[
+                        rx.select.item(label, value=value)
+                        for value, label in WEEKDAY_OPTIONS
+                    ]
+                )
+            ),
+            name="day_of_week",
+            value=State.hours_day,
+            on_change=State.set_hours_day,
+            size="3",
+            width="100%",
+        ),
+        align="stretch",
+        spacing="2",
+        width="100%",
+    )
+
+
+def _hours_days_field() -> rx.Component:
+    """Day checkboxes used when creating the same period on several days."""
+    return rx.vstack(
+        rx.text("Dias da semana", size="2", weight="medium", color=COLORS["text"]),
+        rx.checkbox(
+            "Todos os dias",
+            checked=State.hours_all_days,
+            on_change=State.toggle_all_hours_days,
+            color_scheme="ruby",
+            size="3",
+        ),
+        rx.grid(
+            *[
+                rx.checkbox(
+                    label,
+                    checked=State.hours_days.contains(value),
+                    on_change=State.toggle_hours_day(value),
+                    color_scheme="ruby",
+                    size="3",
+                )
+                for value, label in WEEKDAY_OPTIONS
+            ],
+            columns=rx.breakpoints(initial="2", sm="4"),
+            spacing="3",
+            width="100%",
+        ),
+        rx.text(
+            "Marque um ou mais dias para cadastrar o mesmo horário em todos eles.",
+            size="2",
+            color=COLORS["muted"],
+        ),
+        align="stretch",
+        spacing="3",
+        width="100%",
+    )
+
+
 def admin_hours_page() -> rx.Component:
     return rx.box(
         rx.vstack(
@@ -3243,35 +3348,10 @@ def admin_hours_page() -> rx.Component:
                     ),
                     rx.form(
                         rx.vstack(
-                            rx.vstack(
-                                rx.text(
-                                    "Dia da semana",
-                                    size="2",
-                                    weight="medium",
-                                    color=COLORS["text"],
-                                ),
-                                rx.select.root(
-                                    rx.select.trigger(width="100%"),
-                                    rx.select.content(
-                                        rx.select.group(
-                                            *[
-                                                rx.select.item(
-                                                    label,
-                                                    value=value,
-                                                )
-                                                for value, label in WEEKDAY_OPTIONS
-                                            ]
-                                        )
-                                    ),
-                                    name="day_of_week",
-                                    value=State.hours_day,
-                                    on_change=State.set_hours_day,
-                                    size="3",
-                                    width="100%",
-                                ),
-                                align="stretch",
-                                spacing="2",
-                                width="100%",
+                            rx.cond(
+                                State.editing_hour_id > 0,
+                                _hours_single_day_field(),
+                                _hours_days_field(),
                             ),
                             rx.flex(
                                 rx.vstack(

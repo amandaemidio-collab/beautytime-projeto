@@ -35,6 +35,20 @@ query "admin/professionals/{professional_id}/hours" verb=POST {
       error = "hours_interval_invalid"
     }
 
+    function.run "Agenda/find_hours_overlap" {
+      input = {
+        professional_id: $professional.id
+        day_of_week    : $input.day_of_week
+        start_minute   : $input.start_minute
+        end_minute     : $input.end_minute
+      }
+    } as $has_overlap
+
+    precondition (!$has_overlap) {
+      error_type = "inputerror"
+      error = "hours_overlap:" ~ ($input.day_of_week|to_text)
+    }
+
     db.add professional_hours {
       data = {
         professional_id: $professional.id

@@ -51,6 +51,25 @@ query "admin/professionals/{professional_id}/hours/{hour_id}" verb=PATCH {
       error = "hours_interval_invalid"
     }
 
+    var $new_day_of_week {
+      value = $input.day_of_week ?? $hours.day_of_week
+    }
+
+    function.run "Agenda/find_hours_overlap" {
+      input = {
+        professional_id: $professional.id
+        day_of_week    : $new_day_of_week
+        start_minute   : $input.start_minute ?? $hours.start_minute
+        end_minute     : $input.end_minute ?? $hours.end_minute
+        exclude_hour_id: $hours.id
+      }
+    } as $has_overlap
+
+    precondition (!$has_overlap) {
+      error_type = "inputerror"
+      error = "hours_overlap:" ~ ($new_day_of_week|to_text)
+    }
+
     db.edit professional_hours {
       field_name = "id"
       field_value = $hours.id
