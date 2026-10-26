@@ -1,3 +1,6 @@
 .venv/
 reflex.log
 .web/
+
+# Backups locais do Xano (contêm dados e hashes de senha)
+backups/
