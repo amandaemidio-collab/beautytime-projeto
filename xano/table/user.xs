@@ -24,7 +24,7 @@ table user {
     }
   
     enum role {
-      values = ["client", "admin"]
+      values = ["client", "admin", "platform_admin"]
       visibility = "private"
     }
   

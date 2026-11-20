@@ -5,6 +5,7 @@ API_BASE_URLS = {
     "members_accounts": "https://x8ki-letl-twmt.n7.xano.io/api:EYm7vjJ1",
     "catalogo": "https://x8ki-letl-twmt.n7.xano.io/api:beautytime-catalogo",
     "agenda": "https://x8ki-letl-twmt.n7.xano.io/api:beautytime-agenda",
+    "platform": "https://x8ki-letl-twmt.n7.xano.io/api:beautytime-platform",
 }
 
 

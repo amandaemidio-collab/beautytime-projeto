@@ -18,7 +18,7 @@ query "auth/me" verb=GET {
       error = "Authenticated user not found."
     }
   
-    precondition (($user.role == "client" && $user.account_id == null) || ($user.role == "admin" && $user.account_id != null)) {
+    precondition (($user.role == "client" && $user.account_id == null) || ($user.role == "admin" && $user.account_id != null) || ($user.role == "platform_admin" && $user.account_id == null)) {
       error_type = "accessdenied"
       error = "The authenticated account has an invalid identity or company association."
     }

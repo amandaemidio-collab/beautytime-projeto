@@ -30,10 +30,13 @@ Muitos salões e barbearias ainda organizam a agenda por telefone, WhatsApp ou c
 
 **Profissional** — pessoa que realiza os serviços (cabeleireira, barbeiro, manicure etc.). No escopo inicial, o profissional é um registro cadastrado pelo administrador e não precisa ter login próprio.
 
+**Administrador da plataforma** — pessoa da equipe BeautyTime que usa uma área separada para consultar salões, indicadores e cadastros. Essa conta não pertence a um salão e não substitui nem altera o acesso de uma administradora de estabelecimento.
+
 ## 5. Escopo
 
 - Cadastro e login de clientes.
 - Cadastro e login de administradores de estabelecimento.
+- Login e painel separado para administradores da plataforma.
 - Cadastro de empresa, com um link público de agendamento.
 - Cadastro de profissionais, serviços e horários de atendimento.
 - Indicação de quais serviços cada profissional realiza.
@@ -60,6 +63,12 @@ Muitos salões e barbearias ainda organizam a agenda por telefone, WhatsApp ou c
 - Definir livremente um ou mais períodos de atendimento por dia para cada profissional, sem limite de horas diárias.
 - Ver a agenda da empresa por dia e por profissional.
 - Ver os cancelamentos tardios.
+
+**Para o administrador da plataforma**
+- Entrar por `/platform/login`, sem link na navegação pública.
+- Pesquisar salões por nome e filtrar por serviço ativo.
+- Consultar indicadores, serviços e profissionais de cada salão.
+- Editar dados de salões, serviços e profissionais; as alterações são autorizadas e registradas pelo backend.
 
 ## 7. Requisitos e restrições importantes
 
@@ -93,6 +102,7 @@ Muitos salões e barbearias ainda organizam a agenda por telefone, WhatsApp ou c
 - Toda regra de autorização é aplicada no backend (Xano). O frontend não é mecanismo de segurança.
 - A cliente só pode ver e cancelar os próprios agendamentos.
 - O administrador só pode ver e alterar os dados da própria empresa.
+- O administrador da plataforma usa rotas próprias sob `/platform`; o backend autoriza somente o papel `platform_admin`, sem associação a empresa.
 - A verificação de conflito de horário é feita no backend no momento de criar o agendamento, mesmo que a tela já mostre apenas horários livres.
 - Senhas e tokens nunca são guardados em arquivos versionados.
 

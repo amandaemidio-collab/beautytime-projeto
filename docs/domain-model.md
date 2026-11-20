@@ -58,6 +58,28 @@ Usuário responsável por gerenciar uma empresa.
 
 ---
 
+## Administrador da plataforma
+
+Usuário da equipe BeautyTime responsável pela operação administrativa da plataforma, separado das contas que gerenciam salões.
+
+### Principais informações
+- nome;
+- e-mail (usado no login);
+- senha;
+- papel `platform_admin`.
+
+### Relacionamentos
+- Não pertence a uma empresa e mantém `account_id` nulo.
+- Pode consultar salões e seus cadastros pelo painel da plataforma.
+
+### Regras estruturais
+- Entra pelo fluxo próprio de login e acessa somente as rotas do painel da plataforma, sob `/platform`.
+- As consultas e alterações são autorizadas pelo backend; a interface não substitui essa verificação.
+- As alterações em salões, serviços e profissionais são registradas em `event_log`.
+- Não é uma administradora de salão e não pode usar as rotas `/admin` como se tivesse empresa.
+
+---
+
 ## Cliente
 
 Pessoa que agenda serviços.

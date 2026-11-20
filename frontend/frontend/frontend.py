@@ -11,6 +11,13 @@ import reflex as rx
 
 from frontend.api_client import request_json, request_json_list
 from frontend.api_config import api_url
+from frontend.formatting import price_label as _price_label
+from frontend.platform_panel import (
+    PlatformState,
+    platform_home_page,
+    platform_login_page,
+    platform_salon_page,
+)
 from frontend.theme import (
     COLORS,
     FORM_FIELD_STYLE,
@@ -43,10 +50,6 @@ def _duration_label(minutes: int) -> str:
     if not remainder:
         return f"{hours}h"
     return f"{hours}h {remainder}min"
-
-
-def _price_label(price_cents: int) -> str:
-    return f"R$ {price_cents // 100},{price_cents % 100:02d}"
 
 
 def _minute_label(minutes: int) -> str:
@@ -4895,4 +4898,22 @@ app.add_page(
     route="/agendar/[identificador]",
     title="Página pública da empresa",
     on_load=State.load_public_company,
+)
+app.add_page(
+    platform_login_page,
+    route="/platform/login",
+    title="Acesso da plataforma",
+    on_load=PlatformState.load_login,
+)
+app.add_page(
+    platform_home_page,
+    route="/platform",
+    title="Salões da plataforma",
+    on_load=PlatformState.load_home,
+)
+app.add_page(
+    platform_salon_page,
+    route="/platform/saloes/[account_id]",
+    title="Detalhe do salão",
+    on_load=PlatformState.load_salon,
 )
