@@ -4,7 +4,7 @@ import json
 import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypedDict
 from urllib.parse import unquote, urlencode
 
 import reflex as rx
@@ -43,6 +43,22 @@ WEEKDAY_OPTIONS = [
 ]
 
 
+class SalonService(TypedDict):
+    name: str
+    duration_minutes: int
+    duration_display: str
+    price_cents: int
+    price_display: str
+
+
+class PublicSalon(TypedDict):
+    name: str
+    description: str
+    location: str
+    identifier: str
+    services: list[SalonService]
+
+
 def _duration_label(minutes: int) -> str:
     hours, remainder = divmod(minutes, 60)
     if not hours:
@@ -50,6 +66,78 @@ def _duration_label(minutes: int) -> str:
     if not remainder:
         return f"{hours}h"
     return f"{hours}h {remainder}min"
+
+
+def _parse_public_salons(data: list[object]) -> list[PublicSalon] | None:
+    salons: list[PublicSalon] = []
+    account_fields = {
+        "name",
+        "description",
+        "location",
+        "public_identifier",
+        "services",
+    }
+    service_fields = {"name", "duration_minutes", "price_cents"}
+    for item in data:
+        name = item.get("name") if isinstance(item, dict) else None
+        identifier = item.get("public_identifier") if isinstance(item, dict) else None
+        if (
+            not isinstance(item, dict)
+            or set(item) != account_fields
+            or not isinstance(name, str)
+            or not name.strip()
+            or not isinstance(identifier, str)
+            or not IDENTIFIER_PATTERN.fullmatch(identifier)
+            or not (
+                item.get("description") is None
+                or isinstance(item.get("description"), str)
+            )
+            or not (
+                item.get("location") is None
+                or isinstance(item.get("location"), str)
+            )
+            or not isinstance(item.get("services"), list)
+        ):
+            return None
+
+        services: list[SalonService] = []
+        for service in item["services"]:
+            if (
+                not isinstance(service, dict)
+                or set(service) != service_fields
+                or not isinstance(service.get("name"), str)
+                or not service["name"].strip()
+                or isinstance(service.get("duration_minutes"), bool)
+                or not isinstance(service.get("duration_minutes"), int)
+                or service["duration_minutes"] < 15
+                or service["duration_minutes"] > 480
+                or service["duration_minutes"] % 15 != 0
+                or isinstance(service.get("price_cents"), bool)
+                or not isinstance(service.get("price_cents"), int)
+                or service["price_cents"] < 0
+            ):
+                return None
+            services.append(
+                {
+                    "name": service["name"].strip(),
+                    "duration_minutes": service["duration_minutes"],
+                    "duration_display": _duration_label(
+                        service["duration_minutes"]
+                    ),
+                    "price_cents": service["price_cents"],
+                    "price_display": _price_label(service["price_cents"]),
+                }
+            )
+        salons.append(
+            {
+                "name": name.strip(),
+                "description": item["description"] or "",
+                "location": item["location"] or "",
+                "identifier": identifier,
+                "services": services,
+            }
+        )
+    return salons
 
 
 def _minute_label(minutes: int) -> str:
@@ -405,7 +493,9 @@ class State(rx.State):
     cancel_target_late: bool = False
     cancel_submitting: bool = False
     cancel_error: str = ""
-    salons: list[dict[str, str]] = []
+    salons_search: str = ""
+    salons_service: str = ""
+    salons: list[PublicSalon] = []
     salons_loading: bool = False
     salons_error: str = ""
 
@@ -2117,15 +2207,36 @@ class State(rx.State):
         self._refresh_client_appointments()
 
     @rx.event
+    def set_salons_search(self, value: str):
+        self.salons_search = value
+
+    @rx.event
+    def set_salons_service(self, value: str):
+        self.salons_service = value
+
+    @rx.event
     def load_salons(self):
         """Load the public list of salons that accept bookings."""
         self.salons = []
         self.salons_error = ""
         self.salons_loading = True
         yield
-        self.salons_loading = False
+
+        filters = {
+            key: value
+            for key, value in {
+                "search": self.salons_search.strip(),
+                "service": self.salons_service.strip(),
+            }.items()
+            if value
+        }
+        endpoint = api_url("members_accounts", "public/accounts")
+        query = urlencode(filters)
+        if query:
+            endpoint = f"{endpoint}?{query}"
+
         status, data = request_json_list(
-            "GET", api_url("members_accounts", "companies/public")
+            "GET", endpoint
         )
         if status != 200 or not isinstance(data, list):
             self.salons_error = (
@@ -2134,26 +2245,19 @@ class State(rx.State):
                 else "Não foi possível carregar os salões. Recarregue a página "
                 "para tentar novamente."
             )
+            self.salons_loading = False
             return
-        salons: list[dict[str, str]] = []
-        for item in data:
-            name = item.get("name") if isinstance(item, dict) else None
-            identifier = (
-                item.get("public_identifier") if isinstance(item, dict) else None
+
+        salons = _parse_public_salons(data)
+        if salons is None:
+            self.salons_error = (
+                "A lista de salões veio em formato inválido. Recarregue a "
+                "página para tentar novamente."
             )
-            if (
-                not isinstance(name, str)
-                or not name.strip()
-                or not isinstance(identifier, str)
-                or not IDENTIFIER_PATTERN.fullmatch(identifier)
-            ):
-                self.salons_error = (
-                    "A lista de salões veio em formato inválido. Recarregue a "
-                    "página para tentar novamente."
-                )
-                return
-            salons.append({"name": name.strip(), "identifier": identifier})
+            self.salons_loading = False
+            return
         self.salons = salons
+        self.salons_loading = False
 
     def _refresh_client_appointments(self):
         self.client_appointments_loading = False
@@ -2322,6 +2426,17 @@ def index() -> rx.Component:
                 color=COLORS["muted"],
                 size="2",
                 text_align="center",
+            ),
+            rx.link(
+                rx.button(
+                    "Encontrar salões",
+                    width="100%",
+                    height="48px",
+                    background_color=COLORS["accent"],
+                    color=COLORS["surface"],
+                ),
+                href="/saloes",
+                width={"initial": "100%", "sm": "auto"},
             ),
             align="center",
             spacing="6",
@@ -2735,6 +2850,11 @@ def client_appointments_page() -> rx.Component:
                     href="/saloes",
                     width={"initial": "100%", "sm": "auto"},
                 ),
+                rx.link(
+                    "Encontrar salões",
+                    href="/saloes",
+                    color=COLORS["accent"],
+                ),
                 _policy_callout(),
             ),
             rx.cond(
@@ -2787,30 +2907,77 @@ def client_appointments_page() -> rx.Component:
     )
 
 
-def _salon_card(salon: rx.Var[dict[str, str]]) -> rx.Component:
+def _salon_service_row(service: rx.Var[SalonService]) -> rx.Component:
+    return rx.flex(
+        rx.vstack(
+            rx.text(service["name"], color=COLORS["text"], weight="medium"),
+            rx.text(service["duration_display"], color=COLORS["muted"], size="2"),
+            align="start",
+            spacing="1",
+            min_width="0",
+        ),
+        rx.text(
+            service["price_display"],
+            color=COLORS["text"],
+            weight="bold",
+            white_space="nowrap",
+        ),
+        justify="between",
+        align="center",
+        width="100%",
+        gap="3",
+    )
+
+
+def _salon_card(salon: rx.Var[PublicSalon]) -> rx.Component:
     return _panel(
-        rx.flex(
-            rx.heading(
-                salon["name"],
-                size="4",
-                color=COLORS["text"],
-                overflow_wrap="anywhere",
-                flex="1",
-                min_width="0",
+        rx.vstack(
+            rx.flex(
+                rx.heading(
+                    salon["name"],
+                    size="4",
+                    color=COLORS["text"],
+                    overflow_wrap="anywhere",
+                    flex="1",
+                    min_width="0",
+                ),
+                rx.button(
+                    "Agendar",
+                    on_click=State.start_fresh_booking(salon["identifier"]),
+                    width={"initial": "100%", "sm": "auto"},
+                    height="44px",
+                    background_color=COLORS["accent"],
+                    color=COLORS["surface"],
+                    aria_label=f"Agendar em {salon['name']}",
+                ),
+                direction={"initial": "column", "sm": "row"},
+                align={"initial": "stretch", "sm": "center"},
+                justify="between",
+                spacing="3",
+                width="100%",
             ),
-            rx.button(
-                "Agendar",
-                on_click=State.start_fresh_booking(salon["identifier"]),
-                width={"initial": "100%", "sm": "auto"},
-                height="44px",
-                background_color=COLORS["accent"],
-                color=COLORS["surface"],
-                aria_label=f"Agendar em {salon['name']}",
+            rx.cond(
+                salon["location"] != "",
+                rx.text(salon["location"], color=COLORS["muted"]),
+                rx.fragment(),
             ),
-            direction={"initial": "column", "sm": "row"},
-            align={"initial": "stretch", "sm": "center"},
-            justify="between",
-            spacing="3",
+            rx.text("Serviços ativos", size="2", weight="bold", color=COLORS["text"]),
+            rx.cond(
+                salon["services"].length() == 0,
+                rx.text(
+                    "Nenhum serviço disponível no momento.",
+                    color=COLORS["muted"],
+                    size="2",
+                ),
+                rx.vstack(
+                    rx.foreach(salon["services"], _salon_service_row),
+                    align="stretch",
+                    spacing="3",
+                    width="100%",
+                ),
+            ),
+            align="stretch",
+            spacing="4",
             width="100%",
         ),
     )
@@ -2839,6 +3006,41 @@ def salons_page() -> rx.Component:
                 rx.text(
                     "Escolha um salão para ver os serviços e agendar seu horário.",
                     color=COLORS["muted"],
+                ),
+            ),
+            _panel(
+                rx.flex(
+                    rx.input(
+                        value=State.salons_search,
+                        on_change=State.set_salons_search,
+                        placeholder="Nome do salão",
+                        type="search",
+                        aria_label="Buscar salão por nome",
+                        width="100%",
+                        size="3",
+                        style=FORM_FIELD_STYLE,
+                    ),
+                    rx.input(
+                        value=State.salons_service,
+                        on_change=State.set_salons_service,
+                        placeholder="Nome do serviço",
+                        aria_label="Filtrar por serviço",
+                        width="100%",
+                        size="3",
+                        style=FORM_FIELD_STYLE,
+                    ),
+                    rx.button(
+                        "Buscar",
+                        on_click=State.load_salons,
+                        width={"initial": "100%", "sm": "auto"},
+                        height="44px",
+                        background_color=COLORS["accent"],
+                        color=COLORS["surface"],
+                    ),
+                    direction={"initial": "column", "md": "row"},
+                    align="stretch",
+                    spacing="3",
+                    width="100%",
                 ),
             ),
             rx.cond(
