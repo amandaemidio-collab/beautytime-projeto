@@ -1,6 +1,7 @@
 """BeautyTime booking, account, and public-company pages."""
 
 import json
+import math
 import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
@@ -19,13 +20,30 @@ from frontend.platform_panel import (
     platform_salon_page,
 )
 from frontend.theme import (
+    BUTTON_STYLES,
+    CALLOUT_STYLES,
+    CARD_DEFAULT_PADDING,
+    CARD_STYLE,
     COLORS,
     FORM_FIELD_STYLE,
     FONT_FAMILY,
     FONT_STYLESHEET,
     GLOBAL_STYLES,
+    INTERACTIVE_CARD_STYLE,
+    MAX_WIDTHS,
+    METRIC_CARD_STYLE,
+    MENU_STYLE,
+    PAGE_STYLE,
+    PAGE_SECTION_GAP,
+    PANEL_STYLE,
     SHADOWS,
     TILE_STYLE,
+    brand,
+    empty_state,
+    error_callout,
+    field_label,
+    loading_state,
+    status_badge,
 )
 
 IDENTIFIER_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
@@ -57,6 +75,38 @@ class PublicSalon(TypedDict):
     location: str
     identifier: str
     services: list[SalonService]
+
+
+class AdminDashboardService(TypedDict):
+    service_name: str
+    appointment_count: int
+
+
+class AdminDashboardAppointment(TypedDict):
+    id: int
+    time_display: str
+    service_name: str
+    professional_name: str
+
+
+class AdminDashboard(TypedDict):
+    appointments_today: int
+    appointments_week: int
+    revenue_display: str
+    cancellation_display: str
+    top_services: list[AdminDashboardService]
+    upcoming_today: list[AdminDashboardAppointment]
+
+
+def _empty_admin_dashboard() -> AdminDashboard:
+    return {
+        "appointments_today": 0,
+        "appointments_week": 0,
+        "revenue_display": _price_label(0),
+        "cancellation_display": "0%",
+        "top_services": [],
+        "upcoming_today": [],
+    }
 
 
 def _duration_label(minutes: int) -> str:
@@ -178,25 +228,105 @@ def _local_datetime_label(value: object) -> str:
     return _local_datetime(value).strftime("%d/%m/%Y às %H:%M")
 
 
+def _parse_admin_dashboard(
+    data: dict[str, object],
+) -> AdminDashboard | None:
+    appointments_today = data.get("appointments_today")
+    appointments_week = data.get("appointments_week")
+    revenue_cents = data.get("estimated_revenue_cents")
+    cancellation_rate = data.get("cancellation_rate")
+    top_services = data.get("top_services")
+    upcoming_today = data.get("upcoming_today")
+    if (
+        isinstance(appointments_today, bool)
+        or not isinstance(appointments_today, int)
+        or appointments_today < 0
+        or isinstance(appointments_week, bool)
+        or not isinstance(appointments_week, int)
+        or appointments_week < 0
+        or isinstance(revenue_cents, bool)
+        or not isinstance(revenue_cents, int)
+        or revenue_cents < 0
+        or isinstance(cancellation_rate, bool)
+        or not isinstance(cancellation_rate, (int, float))
+        or not math.isfinite(float(cancellation_rate))
+        or not 0 <= cancellation_rate <= 1
+        or not isinstance(top_services, list)
+        or not isinstance(upcoming_today, list)
+    ):
+        return None
+
+    parsed_services: list[AdminDashboardService] = []
+    for service in top_services:
+        if (
+            not isinstance(service, dict)
+            or not isinstance(service.get("service_name"), str)
+            or not service["service_name"].strip()
+            or isinstance(service.get("appointment_count"), bool)
+            or not isinstance(service.get("appointment_count"), int)
+            or service["appointment_count"] < 0
+        ):
+            return None
+        parsed_services.append(
+            {
+                "service_name": service["service_name"].strip(),
+                "appointment_count": service["appointment_count"],
+            }
+        )
+
+    parsed_appointments: list[tuple[datetime, AdminDashboardAppointment]] = []
+    for appointment in upcoming_today:
+        if (
+            not isinstance(appointment, dict)
+            or isinstance(appointment.get("id"), bool)
+            or not isinstance(appointment.get("id"), int)
+            or isinstance(appointment.get("professional_id"), bool)
+            or not isinstance(appointment.get("professional_id"), int)
+            or not isinstance(appointment.get("service_name"), str)
+            or not appointment["service_name"].strip()
+            or not isinstance(appointment.get("professional_name"), str)
+            or not appointment["professional_name"].strip()
+        ):
+            return None
+        try:
+            starts_at = _local_datetime(appointment.get("starts_at"))
+            ends_at = _local_datetime(appointment.get("ends_at"))
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if ends_at <= starts_at:
+            return None
+        parsed_appointments.append(
+            (
+                starts_at,
+                {
+                    "id": appointment["id"],
+                    "time_display": (
+                        f"{starts_at:%H:%M} - {ends_at:%H:%M}"
+                    ),
+                    "service_name": appointment["service_name"].strip(),
+                    "professional_name": appointment["professional_name"].strip(),
+                },
+            )
+        )
+
+    parsed_appointments.sort(key=lambda item: item[0])
+    return {
+        "appointments_today": appointments_today,
+        "appointments_week": appointments_week,
+        "revenue_display": _price_label(revenue_cents),
+        "cancellation_display": (
+            f"{float(cancellation_rate) * 100:.1f}".rstrip("0").rstrip(".") + "%"
+        ),
+        "top_services": parsed_services[:5],
+        "upcoming_today": [
+            item for _, item in parsed_appointments[:5]
+        ],
+    }
+
+
 DURATION_OPTIONS = [
     (str(minutes), _duration_label(minutes)) for minutes in range(15, 481, 15)
 ]
-PAGE_STYLE = {
-    "min_height": "100vh",
-    "background_color": COLORS["background"],
-    "font_family": FONT_FAMILY,
-    "padding": rx.breakpoints(initial="28px 16px", md="56px 24px"),
-    "overflow_x": "hidden",
-}
-CARD_STYLE = {
-    "width": "100%",
-    "max_width": "520px",
-    "padding": rx.breakpoints(initial="28px 20px", md="40px"),
-    "border": f"1px solid {COLORS['border']}",
-    "border_radius": "24px",
-    "background_color": COLORS["surface"],
-    "box_shadow": SHADOWS["card"],
-}
 HELPER_TEXT = "Exemplo: salao-da-ana"
 IDENTIFIER_FORMAT_ERROR = (
     "Use de 3 a 40 caracteres: letras minúsculas, números e hífen, "
@@ -264,7 +394,7 @@ def _field(
 ) -> rx.Component:
     """Create a labeled form field without copying its value into app state."""
     return rx.vstack(
-        rx.text(label, size="2", weight="medium", color=COLORS["text"]),
+        field_label(label),
         rx.input(
             name=name,
             type=input_type,
@@ -272,6 +402,7 @@ def _field(
             required=required,
             width="100%",
             size="3",
+            style=FORM_FIELD_STYLE,
             **input_props,
         ),
         align="stretch",
@@ -282,12 +413,7 @@ def _field(
 
 def _identifier_field() -> rx.Component:
     return rx.vstack(
-        rx.text(
-            "Endereço público da empresa",
-            size="2",
-            weight="medium",
-            color=COLORS["text"],
-        ),
+        field_label("Endereço público da empresa"),
         rx.input(
             name="public_identifier",
             type="text",
@@ -338,27 +464,25 @@ def _form_page(
             ),
             rx.box(
                 rx.vstack(
-                    rx.heading(title, size="8", color=COLORS["text"], weight="bold"),
+                    rx.heading(
+                        title,
+                        size={"initial": "6", "sm": "8"},
+                        color=COLORS["text"],
+                        weight="bold",
+                        overflow_wrap="anywhere",
+                    ),
                     rx.text(description, color=COLORS["muted"], line_height="1.6"),
                     rx.form(
                         rx.vstack(
                             *fields,
-                            rx.text(
-                                State.message,
-                                color=COLORS["error"],
-                                size="2",
-                                role="alert",
-                            ),
+                            error_callout(State.message),
                             rx.button(
                                 submit_label,
                                 type="submit",
                                 width="100%",
                                 size="3",
-                                style=FORM_FIELD_STYLE,
-                                height="52px",
-                                background_color=COLORS["accent"],
-                                color=COLORS["surface"],
-                                _hover={"background_color": COLORS["accent_hover"]},
+                                style=BUTTON_STYLES["primary"],
+                                height="48px",
                             ),
                             align="stretch",
                             spacing="4",
@@ -377,9 +501,9 @@ def _form_page(
                 style=CARD_STYLE,
             ),
             align="center",
-            spacing="6",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="520px",
+            max_width=MAX_WIDTHS["auth"],
         ),
         display="flex",
         justify_content="center",
@@ -388,13 +512,7 @@ def _form_page(
 
 
 def _brand() -> rx.Component:
-    return rx.heading(
-        "BeautyTime",
-        size="6",
-        weight="bold",
-        color=COLORS["accent"],
-        letter_spacing="-0.04em",
-    )
+    return brand()
 
 
 class State(rx.State):
@@ -410,6 +528,8 @@ class State(rx.State):
     company_identifier: str = ""
     dashboard_loading: bool = False
     dashboard_error: str = ""
+    admin_dashboard_loaded: bool = False
+    admin_dashboard: AdminDashboard = _empty_admin_dashboard()
     public_link: str = ""
     clipboard_notice: str = ""
     public_company_name: str = ""
@@ -732,6 +852,9 @@ class State(rx.State):
         self.user_role = ""
         self.company_name = ""
         self.company_identifier = ""
+        self.admin_dashboard = _empty_admin_dashboard()
+        self.admin_dashboard_loaded = False
+        self.dashboard_error = ""
         self.public_link = ""
         self.professional_items = []
         self.professional_service_options = []
@@ -751,6 +874,8 @@ class State(rx.State):
     def load_admin_dashboard(self):
         self.dashboard_loading = True
         self.dashboard_error = ""
+        self.admin_dashboard_loaded = False
+        self.admin_dashboard = _empty_admin_dashboard()
         self.clipboard_notice = ""
         if not self._auth_token or not self._load_identity("admin"):
             self.dashboard_loading = False
@@ -759,6 +884,31 @@ class State(rx.State):
             self.dashboard_loading = False
             self.dashboard_error = self.services_error
             return
+
+        status, dashboard = request_json(
+            "GET",
+            api_url("catalogo", "admin/dashboard"),
+            token=self._auth_token,
+        )
+        if status in (401, 403):
+            self._auth_token = ""
+            self.user_role = ""
+            self.user_name = ""
+            self.dashboard_loading = False
+            return rx.redirect("/admin/login")
+        if status != 200:
+            self.dashboard_error = _api_error(status, dashboard)
+            self.dashboard_loading = False
+            return
+        parsed_dashboard = _parse_admin_dashboard(dashboard)
+        if parsed_dashboard is None:
+            self.dashboard_error = (
+                "A API retornou dados inválidos para os indicadores do salão."
+            )
+            self.dashboard_loading = False
+            return
+        self.admin_dashboard = parsed_dashboard
+        self.admin_dashboard_loaded = True
         self.dashboard_loading = False
         return rx.call_script(
             "window.location.origin + '/agendar/' + "
@@ -1901,7 +2051,8 @@ class State(rx.State):
             options.append({"id": str(item["id"]), "name": item["name"]})
         if len(options) == 1:
             self.booking_professionals_error = (
-                "Nenhum profissional realiza este serviço no momento."
+                "Nenhum profissional realiza este serviço no momento. "
+                "Escolha outro serviço ou entre em contato com a empresa."
             )
             return False
         self.booking_professional_options = options
@@ -2411,7 +2562,7 @@ def index() -> rx.Component:
                     "/clientes/cadastro",
                 ),
                 _entry_card(
-                    "Sou administradora",
+                    "Tenho um salão",
                     "Entre na sua empresa ou cadastre uma nova.",
                     "/admin/login",
                     "/admin/cadastro",
@@ -2420,12 +2571,6 @@ def index() -> rx.Component:
                 align="stretch",
                 spacing="4",
                 width="100%",
-            ),
-            rx.text(
-                "Já tem o link de uma empresa? Acesse /agendar/identificador.",
-                color=COLORS["muted"],
-                size="2",
-                text_align="center",
             ),
             rx.link(
                 rx.button(
@@ -2439,14 +2584,9 @@ def index() -> rx.Component:
                 width={"initial": "100%", "sm": "auto"},
             ),
             align="center",
-            spacing="6",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="900px",
-            padding={"initial": "28px 20px", "md": "40px"},
-            border=f"1px solid {COLORS['border']}",
-            border_radius="24px",
-            background_color=COLORS["surface"],
-            box_shadow=SHADOWS["card"],
+            max_width=MAX_WIDTHS["home"],
         ),
         display="flex",
         justify_content="center",
@@ -2468,7 +2608,7 @@ def _entry_card(
                 rx.button(
                     "Entrar",
                     width="100%",
-                    height="52px",
+                    height="48px",
                     background_color=COLORS["accent"],
                     color=COLORS["surface"],
                     _hover={"background_color": COLORS["accent_hover"]},
@@ -2476,17 +2616,17 @@ def _entry_card(
                 href=login_route,
                 width="100%",
             ),
-            rx.link("Criar conta", href=signup_route, color=COLORS["accent"]),
+            rx.link("Criar conta", href=signup_route, color=COLORS["accent_text"]),
             align="stretch",
             spacing="4",
             width="100%",
         ),
         flex="1",
-        padding={"initial": "22px", "md": "28px"},
+        padding=CARD_DEFAULT_PADDING,
         border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
+        border_radius="20px",
         background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        box_shadow=SHADOWS["soft"],
     )
 
 
@@ -2515,7 +2655,7 @@ def client_signup_page() -> rx.Component:
                 "/clientes/login?retomar=agendamento",
                 "/clientes/login",
             ),
-            color=COLORS["accent"],
+            color=COLORS["accent_text"],
         ),
     )
 
@@ -2542,7 +2682,7 @@ def client_login_page() -> rx.Component:
                 "/clientes/cadastro?retomar=agendamento",
                 "/clientes/cadastro",
             ),
-            color=COLORS["accent"],
+            color=COLORS["accent_text"],
         ),
     )
 
@@ -2577,7 +2717,7 @@ def admin_signup_page() -> rx.Component:
         rx.link(
             "Já tem conta administradora? Entrar",
             href="/admin/login",
-            color=COLORS["accent"],
+            color=COLORS["accent_text"],
         ),
     )
 
@@ -2600,7 +2740,7 @@ def admin_login_page() -> rx.Component:
         rx.link(
             "Ainda não tem empresa? Cadastre-se",
             href="/admin/cadastro",
-            color=COLORS["accent"],
+            color=COLORS["accent_text"],
         ),
     )
 
@@ -2609,31 +2749,20 @@ def _panel(*children: rx.Component, **props: object) -> rx.Component:
     """White bordered panel used by the client and booking pages."""
     return rx.box(
         rx.vstack(*children, align="stretch", spacing="3", width="100%"),
-        width="100%",
-        padding=rx.breakpoints(initial="18px", sm="22px"),
-        border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        style=PANEL_STYLE,
         **props,
     )
 
 
 def _empty_box(text: str) -> rx.Component:
-    return rx.box(
-        rx.text(text, color=COLORS["muted"]),
-        width="100%",
-        padding="22px",
-        border=f"1px dashed {COLORS['border']}",
-        border_radius="16px",
-    )
+    return empty_state(text)
 
 
 def _policy_callout() -> rx.Component:
     return rx.callout(
         CANCELLATION_POLICY,
         icon="info",
-        color_scheme="gray",
+        style=CALLOUT_STYLES["info"],
         width="100%",
     )
 
@@ -2658,11 +2787,9 @@ def _client_appointment_card(appointment: rx.Var[dict[str, Any]]) -> rx.Componen
                 flex="1",
                 min_width="0",
             ),
-            rx.badge(
+            status_badge(
                 appointment["status_label"],
-                color_scheme=rx.cond(
-                    appointment["status"] == "agendado", "green", "gray"
-                ),
+                appointment["status"] == "agendado",
             ),
             direction={"initial": "column", "sm": "row"},
             align={"initial": "start", "sm": "center"},
@@ -2684,7 +2811,7 @@ def _client_appointment_card(appointment: rx.Var[dict[str, Any]]) -> rx.Componen
             rx.callout(
                 "Cancelamento tardio: taxa informativa de R$ 5,00.",
                 icon="info",
-                color_scheme="ruby",
+                style=CALLOUT_STYLES["warning"],
                 width="100%",
             ),
             rx.fragment(),
@@ -2697,10 +2824,9 @@ def _client_appointment_card(appointment: rx.Var[dict[str, Any]]) -> rx.Componen
                     on_click=State.start_fresh_booking(
                         appointment["public_identifier"]
                     ),
-                    variant="outline",
-                    color=COLORS["accent"],
+                    style=BUTTON_STYLES["secondary"],
                     width={"initial": "100%", "sm": "auto"},
-                    height="44px",
+                    height="48px",
                     aria_label=f"Agendar de novo em {appointment['company_name']}",
                 ),
                 rx.fragment(),
@@ -2710,10 +2836,9 @@ def _client_appointment_card(appointment: rx.Var[dict[str, Any]]) -> rx.Componen
                 rx.button(
                     "Cancelar agendamento",
                     on_click=State.open_cancel_dialog(appointment["id"]),
-                    variant="outline",
-                    color_scheme="ruby",
+                    style=BUTTON_STYLES["danger_outline"],
                     width={"initial": "100%", "sm": "auto"},
-                    height="44px",
+                    height="48px",
                 ),
                 rx.fragment(),
             ),
@@ -2768,7 +2893,7 @@ def _cancel_dialog() -> rx.Component:
                         "será marcado como tardio, com taxa apenas informativa "
                         "de R$ 5,00. Nenhum pagamento é processado.",
                         icon="triangle_alert",
-                        color_scheme="ruby",
+                        style=CALLOUT_STYLES["warning"],
                         width="100%",
                     ),
                     rx.text(
@@ -2777,7 +2902,7 @@ def _cancel_dialog() -> rx.Component:
                         color=COLORS["muted"],
                     ),
                 ),
-                rx.text(State.cancel_error, color=COLORS["error"], role="alert"),
+                error_callout(State.cancel_error),
                 align="stretch",
                 spacing="3",
                 margin_top="12px",
@@ -2786,8 +2911,7 @@ def _cancel_dialog() -> rx.Component:
                 rx.alert_dialog.cancel(
                     rx.button(
                         "Manter agendamento",
-                        variant="soft",
-                        color_scheme="gray",
+                        style=BUTTON_STYLES["soft"],
                         disabled=State.cancel_submitting,
                     ),
                 ),
@@ -2799,14 +2923,15 @@ def _cancel_dialog() -> rx.Component:
                     ),
                     on_click=State.confirm_cancel,
                     loading=State.cancel_submitting,
-                    color_scheme="ruby",
+                    style=BUTTON_STYLES["danger"],
                 ),
                 direction={"initial": "column-reverse", "sm": "row"},
                 justify="end",
                 spacing="3",
                 margin_top="16px",
             ),
-            max_width="460px",
+            width="calc(100% - 40px)",
+            max_width="448px",
         ),
         open=State.cancel_dialog_open,
         on_open_change=State.set_cancel_dialog_open,
@@ -2821,8 +2946,7 @@ def client_appointments_page() -> rx.Component:
                 rx.button(
                     "Sair",
                     on_click=State.logout,
-                    variant="outline",
-                    color=COLORS["accent"],
+                    style=BUTTON_STYLES["ghost"],
                 ),
                 justify="between",
                 align="center",
@@ -2853,7 +2977,7 @@ def client_appointments_page() -> rx.Component:
                 rx.link(
                     "Encontrar salões",
                     href="/saloes",
-                    color=COLORS["accent"],
+                    color=COLORS["accent_text"],
                 ),
                 _policy_callout(),
             ),
@@ -2862,14 +2986,14 @@ def client_appointments_page() -> rx.Component:
                 rx.callout(
                     State.client_notice,
                     icon="info",
-                    color_scheme="green",
+                    style=CALLOUT_STYLES["success"],
                     width="100%",
                 ),
                 rx.fragment(),
             ),
             rx.cond(
                 State.client_appointments_loading,
-                rx.text("Carregando agendamentos...", color=COLORS["muted"]),
+                loading_state("Carregando agendamentos..."),
                 rx.cond(
                     State.client_appointments_error != "",
                     rx.text(
@@ -2890,16 +3014,16 @@ def client_appointments_page() -> rx.Component:
                             "Nenhum agendamento passado.",
                         ),
                         align="stretch",
-                        spacing="5",
+                        spacing=PAGE_SECTION_GAP,
                         width="100%",
                     ),
                 ),
             ),
             _cancel_dialog(),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="720px",
+            max_width=MAX_WIDTHS["client"],
         ),
         display="flex",
         justify_content="center",
@@ -2945,7 +3069,7 @@ def _salon_card(salon: rx.Var[PublicSalon]) -> rx.Component:
                     "Agendar",
                     on_click=State.start_fresh_booking(salon["identifier"]),
                     width={"initial": "100%", "sm": "auto"},
-                    height="44px",
+                    height="48px",
                     background_color=COLORS["accent"],
                     color=COLORS["surface"],
                     aria_label=f"Agendar em {salon['name']}",
@@ -3033,7 +3157,7 @@ def salons_page() -> rx.Component:
                         "Buscar",
                         on_click=State.load_salons,
                         width={"initial": "100%", "sm": "auto"},
-                        height="44px",
+                        height="48px",
                         background_color=COLORS["accent"],
                         color=COLORS["surface"],
                     ),
@@ -3045,7 +3169,7 @@ def salons_page() -> rx.Component:
             ),
             rx.cond(
                 State.salons_loading,
-                rx.text("Carregando salões...", color=COLORS["muted"]),
+                loading_state("Carregando salões..."),
                 rx.cond(
                     State.salons_error != "",
                     rx.text(
@@ -3056,7 +3180,9 @@ def salons_page() -> rx.Component:
                     rx.cond(
                         State.salons.length() == 0,
                         _empty_box(
-                            "Ainda não há salões disponíveis para agendamento."
+                            "Ainda não há salões disponíveis para agendamento. "
+                            "Tente novamente mais tarde ou acesse pelo link "
+                            "direto da empresa."
                         ),
                         rx.vstack(
                             rx.foreach(State.salons, _salon_card),
@@ -3068,9 +3194,9 @@ def salons_page() -> rx.Component:
                 ),
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="720px",
+            max_width=MAX_WIDTHS["client"],
         ),
         display="flex",
         justify_content="center",
@@ -3088,7 +3214,7 @@ def _service_form_field(
 ) -> rx.Component:
     error_id = f"{name}-error"
     return rx.vstack(
-        rx.text(label, size="2", weight="medium", color=COLORS["text"]),
+        field_label(label),
         rx.input(
             name=name,
             value=value,
@@ -3119,12 +3245,7 @@ def _service_duration_field(
     error: rx.Var[str],
 ) -> rx.Component:
     return rx.vstack(
-        rx.text(
-            "Duração",
-            size="2",
-            weight="medium",
-            color=COLORS["text"],
-        ),
+        field_label("Duração"),
         rx.select.root(
             rx.select.trigger(
                 placeholder="Selecione a duração",
@@ -3169,11 +3290,10 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
                         min_width=0,
                         overflow_wrap="anywhere",
                     ),
-                    rx.badge(
+                    status_badge(
                         rx.cond(service["is_active"], "Ativo", "Inativo"),
-                        color_scheme=rx.cond(
-                            service["is_active"], "green", "gray"
-                        ),
+                        service["is_active"],
+                        neutral_when_inactive=True,
                     ),
                     align="center",
                     wrap="wrap",
@@ -3203,16 +3323,14 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
                         service["duration_minutes"],
                         service["price_cents"],
                     ),
-                    variant="outline",
-                    height="44px",
-                    color=COLORS["accent"],
-                    border_color=COLORS["border"],
+                    style=BUTTON_STYLES["secondary"],
+                    height="48px",
                     _hover={"background_color": COLORS["background"]},
                 ),
                 rx.button(
                     rx.cond(service["is_active"], "Desativar", "Reativar"),
                     on_click=State.toggle_service_status(service["id"]),
-                    height="44px",
+                    height="48px",
                     background_color=COLORS["accent"],
                     color=COLORS["surface"],
                     _hover={"background_color": COLORS["accent_hover"]},
@@ -3220,6 +3338,7 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
                 direction={"initial": "column", "sm": "row"},
                 spacing="2",
                 width={"initial": "100%", "sm": "auto"},
+                justify="end",
             ),
             direction={"initial": "column", "sm": "row"},
             align={"initial": "stretch", "sm": "center"},
@@ -3227,68 +3346,74 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
             width="100%",
         ),
         width="100%",
-        padding={"initial": "18px", "sm": "22px"},
+        padding=CARD_DEFAULT_PADDING,
         border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        border_radius="20px",
+        background_color=COLORS["linen"],
+        box_shadow=SHADOWS["soft"],
     )
 
 
 def _admin_header() -> rx.Component:
-    return rx.flex(
-        _brand(),
+    def nav_link(label: str, href: str) -> rx.Component:
+        active = State.router.url.path == href
+        return rx.link(
+            label,
+            href=href,
+            color=rx.cond(
+                active,
+                COLORS["primary_foreground"],
+                COLORS["muted"],
+            ),
+            font_size="14px",
+            font_weight="600",
+            background_color=rx.cond(
+                active,
+                COLORS["accent"],
+                "transparent",
+            ),
+            padding="8px 16px",
+            border_radius="999px",
+            min_height="40px",
+            display="flex",
+            align_items="center",
+            white_space="nowrap",
+            text_decoration="none",
+            aria_current=rx.cond(active, "page", "false"),
+        )
+
+    logout_button = rx.button(
+        "Sair",
+        on_click=State.logout,
+        style=BUTTON_STYLES["ghost"],
+        width={"initial": "auto", "sm": "auto"},
+    )
+    navigation = rx.flex(
+        nav_link("Painel", "/admin"),
+        nav_link("Serviços", "/admin/servicos"),
+        nav_link("Profissionais", "/admin/profissionais"),
+        nav_link("Horários", "/admin/horarios"),
+        nav_link("Agenda", "/admin/agenda"),
+        direction="row",
+        align="center",
+        wrap="nowrap",
+        spacing="2",
+        width={"initial": "100%", "sm": "auto"},
+        overflow_x="auto",
+        style=MENU_STYLE,
+    )
+    return rx.vstack(
         rx.flex(
-            rx.link(
-                "Painel",
-                href="/admin",
-                color=COLORS["accent"],
-                font_weight="medium",
-            ),
-            rx.link(
-                "Serviços",
-                href="/admin/servicos",
-                color=COLORS["accent"],
-                font_weight="medium",
-            ),
-            rx.link(
-                "Profissionais",
-                href="/admin/profissionais",
-                color=COLORS["accent"],
-                font_weight="medium",
-            ),
-            rx.link(
-                "Horários",
-                href="/admin/horarios",
-                color=COLORS["accent"],
-                font_weight="medium",
-            ),
-            rx.link(
-                "Agenda",
-                href="/admin/agenda",
-                color=COLORS["accent"],
-                font_weight="medium",
-            ),
-            direction={"initial": "column", "sm": "row"},
-            align={"initial": "stretch", "sm": "center"},
-            wrap="wrap",
-            spacing="4",
-            width={"initial": "100%", "sm": "auto"},
+            _brand(),
+            logout_button,
+            align="center",
+            justify="between",
+            width="100%",
         ),
-        rx.button(
-            "Sair",
-            on_click=State.logout,
-            variant="outline",
-            height="44px",
-            color=COLORS["accent"],
-            border_color=COLORS["border"],
-            width={"initial": "100%", "sm": "auto"},
-        ),
-        direction={"initial": "column", "sm": "row"},
-        align={"initial": "stretch", "sm": "center"},
-        justify="between",
+        navigation,
+        align="stretch",
+        spacing="3",
         width="100%",
-        spacing="4",
     )
 
 
@@ -3318,24 +3443,21 @@ def _hour_card(hour: rx.Var[dict[str, Any]]) -> rx.Component:
                         hour["start_minute"],
                         hour["end_minute"],
                     ),
-                    variant="outline",
-                    height="44px",
-                    color=COLORS["accent"],
-                    border_color=COLORS["border"],
+                    style=BUTTON_STYLES["secondary"],
+                    height="48px",
                     width={"initial": "100%", "sm": "auto"},
                 ),
                 rx.button(
                     "Remover",
                     on_click=State.remove_hour(hour["id"]),
-                    variant="outline",
-                    height="44px",
-                    color=COLORS["error"],
-                    border_color=COLORS["border"],
+                    style=BUTTON_STYLES["danger_outline"],
+                    height="48px",
                     width={"initial": "100%", "sm": "auto"},
                 ),
                 direction={"initial": "column", "sm": "row"},
                 spacing="2",
                 width={"initial": "100%", "sm": "auto"},
+                justify="end",
             ),
             direction={"initial": "column", "sm": "row"},
             align={"initial": "stretch", "sm": "center"},
@@ -3343,11 +3465,11 @@ def _hour_card(hour: rx.Var[dict[str, Any]]) -> rx.Component:
             width="100%",
         ),
         width="100%",
-        padding={"initial": "18px", "sm": "22px"},
+        padding=CARD_DEFAULT_PADDING,
         border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        border_radius="20px",
+        background_color=COLORS["linen"],
+        box_shadow=SHADOWS["soft"],
     )
 
 
@@ -3373,13 +3495,9 @@ def _agenda_card(appointment: rx.Var[dict[str, Any]]) -> rx.Component:
                     flex="1",
                     min_width="0",
                 ),
-                rx.badge(
+                status_badge(
                     appointment["status_label"],
-                    color_scheme=rx.cond(
-                        appointment["status"] == "agendado",
-                        "green",
-                        "gray",
-                    ),
+                    appointment["status"] == "agendado",
                 ),
                 direction={"initial": "column", "sm": "row"},
                 align={"initial": "start", "sm": "center"},
@@ -3406,7 +3524,7 @@ def _agenda_card(appointment: rx.Var[dict[str, Any]]) -> rx.Component:
                 rx.callout(
                     "Cancelamento tardio",
                     icon="info",
-                    color_scheme="ruby",
+                    style=CALLOUT_STYLES["warning"],
                     width="100%",
                 ),
                 rx.box(),
@@ -3416,20 +3534,24 @@ def _agenda_card(appointment: rx.Var[dict[str, Any]]) -> rx.Component:
             width="100%",
         ),
         width="100%",
-        padding={"initial": "18px", "sm": "22px"},
+        padding=CARD_DEFAULT_PADDING,
         border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        border_radius="20px",
+        background_color=COLORS["linen"],
+        box_shadow=SHADOWS["soft"],
     )
 
 
 def _hours_single_day_field() -> rx.Component:
     """Day picker used when editing one existing period."""
     return rx.vstack(
-        rx.text("Dia da semana", size="2", weight="medium", color=COLORS["text"]),
+        field_label("Dia da semana"),
         rx.select.root(
-            rx.select.trigger(width="100%"),
+            rx.select.trigger(
+                width="100%",
+                min_width="0",
+                style=FORM_FIELD_STYLE,
+            ),
             rx.select.content(
                 rx.select.group(
                     *[
@@ -3443,6 +3565,7 @@ def _hours_single_day_field() -> rx.Component:
             on_change=State.set_hours_day,
             size="3",
             width="100%",
+            min_width="0",
         ),
         align="stretch",
         spacing="2",
@@ -3453,12 +3576,12 @@ def _hours_single_day_field() -> rx.Component:
 def _hours_days_field() -> rx.Component:
     """Day checkboxes used when creating the same period on several days."""
     return rx.vstack(
-        rx.text("Dias da semana", size="2", weight="medium", color=COLORS["text"]),
+        field_label("Dias da semana"),
         rx.checkbox(
             "Todos os dias",
             checked=State.hours_all_days,
             on_change=State.toggle_all_hours_days,
-            color_scheme="ruby",
+            color_scheme="brown",
             size="3",
         ),
         rx.grid(
@@ -3467,7 +3590,7 @@ def _hours_days_field() -> rx.Component:
                     label,
                     checked=State.hours_days.contains(value),
                     on_change=State.toggle_hours_day(value),
-                    color_scheme="ruby",
+                    color_scheme="brown",
                     size="3",
                 )
                 for value, label in WEEKDAY_OPTIONS
@@ -3500,16 +3623,13 @@ def admin_hours_page() -> rx.Component:
                     ),
                     rx.text(State.company_name, color=COLORS["muted"]),
                     rx.vstack(
-                        rx.text(
-                            "Profissional",
-                            size="2",
-                            weight="medium",
-                            color=COLORS["text"],
-                        ),
+                        field_label("Profissional"),
                         rx.select.root(
                             rx.select.trigger(
                                 placeholder="Selecione um profissional",
                                 width="100%",
+                                min_width="0",
+                                style=FORM_FIELD_STYLE,
                             ),
                             rx.select.content(
                                 rx.foreach(
@@ -3524,19 +3644,21 @@ def admin_hours_page() -> rx.Component:
                             on_change=State.set_hours_professional,
                             size="3",
                             width="100%",
+                            min_width="0",
                         ),
                         align="stretch",
                         spacing="2",
                         width="100%",
+                        min_width="0",
                     ),
                     align="stretch",
                     spacing="3",
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
             ),
@@ -3560,12 +3682,7 @@ def admin_hours_page() -> rx.Component:
                             ),
                             rx.flex(
                                 rx.vstack(
-                                    rx.text(
-                                        "Início",
-                                        size="2",
-                                        weight="medium",
-                                        color=COLORS["text"],
-                                    ),
+                                    field_label("Início"),
                                     rx.input(
                                         name="start_time",
                                         type="text",
@@ -3575,19 +3692,18 @@ def admin_hours_page() -> rx.Component:
                                         pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]",
                                         required=True,
                                         width="100%",
+                                        min_width="0",
                                         size="3",
+                                        style=FORM_FIELD_STYLE,
                                     ),
                                     align="stretch",
                                     spacing="2",
                                     width="100%",
+                                    min_width="0",
+                                    flex={"initial": "unset", "sm": "1"},
                                 ),
                                 rx.vstack(
-                                    rx.text(
-                                        "Término",
-                                        size="2",
-                                        weight="medium",
-                                        color=COLORS["text"],
-                                    ),
+                                    field_label("Término"),
                                     rx.input(
                                         name="end_time",
                                         type="text",
@@ -3597,15 +3713,20 @@ def admin_hours_page() -> rx.Component:
                                         pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]|24:00",
                                         required=True,
                                         width="100%",
+                                        min_width="0",
                                         size="3",
+                                        style=FORM_FIELD_STYLE,
                                     ),
                                     align="stretch",
                                     spacing="2",
                                     width="100%",
+                                    min_width="0",
+                                    flex={"initial": "unset", "sm": "1"},
                                 ),
                                 direction={"initial": "column", "sm": "row"},
                                 spacing="4",
                                 width="100%",
+                                min_width="0",
                             ),
                             rx.text(
                                 "Use o formato HH:MM. Para encerrar à meia-noite, use 24:00.",
@@ -3621,7 +3742,7 @@ def admin_hours_page() -> rx.Component:
                             rx.text(
                                 State.hours_notice,
                                 role="status",
-                                color=COLORS["accent"],
+                                color=COLORS["success"],
                                 size="2",
                             ),
                             rx.flex(
@@ -3632,7 +3753,7 @@ def admin_hours_page() -> rx.Component:
                                         "Cadastrar período",
                                     ),
                                     type="submit",
-                                    height="52px",
+                                    height="48px",
                                     width={"initial": "100%", "sm": "auto"},
                                     disabled=(
                                         State.selected_hours_professional_id
@@ -3652,11 +3773,9 @@ def admin_hours_page() -> rx.Component:
                                         "Cancelar edição",
                                         type="button",
                                         on_click=State.cancel_hour_edit,
-                                        variant="outline",
-                                        height="52px",
+                                        style=BUTTON_STYLES["secondary"],
+                                        height="48px",
                                         width={"initial": "100%", "sm": "auto"},
-                                        color=COLORS["accent"],
-                                        border_color=COLORS["border"],
                                     ),
                                     rx.box(),
                                 ),
@@ -3678,9 +3797,9 @@ def admin_hours_page() -> rx.Component:
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["card"],
             ),
@@ -3688,10 +3807,7 @@ def admin_hours_page() -> rx.Component:
                 rx.heading("Períodos semanais", size="5", color=COLORS["text"]),
                 rx.cond(
                     State.hours_loading,
-                    rx.text(
-                        "Carregando horários...",
-                        color=COLORS["muted"],
-                    ),
+                    loading_state("Carregando horários..."),
                     rx.cond(
                         State.hours_error != "",
                         rx.text(
@@ -3707,15 +3823,10 @@ def admin_hours_page() -> rx.Component:
                             ),
                             rx.cond(
                                 State.hour_items.length() == 0,
-                                rx.box(
-                                    rx.text(
-                                        "Este profissional ainda não tem períodos de atendimento.",
-                                        color=COLORS["muted"],
-                                    ),
-                                    width="100%",
-                                    padding="22px",
-                                    border=f"1px dashed {COLORS['border']}",
-                                    border_radius="16px",
+                                empty_state(
+                                    "Este profissional ainda não tem períodos "
+                                    "de atendimento. Cadastre um período no "
+                                    "formulário acima."
                                 ),
                                 rx.vstack(
                                     rx.foreach(State.hour_items, _hour_card),
@@ -3732,9 +3843,9 @@ def admin_hours_page() -> rx.Component:
                 width="100%",
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="820px",
+            max_width=MAX_WIDTHS["admin"],
         ),
         display="flex",
         justify_content="center",
@@ -3756,34 +3867,30 @@ def admin_agenda_page() -> rx.Component:
                     rx.text(State.company_name, color=COLORS["muted"]),
                     rx.flex(
                         rx.vstack(
-                            rx.text(
-                                "Dia",
-                                size="2",
-                                weight="medium",
-                                color=COLORS["text"],
-                            ),
+                            field_label("Dia"),
                             rx.input(
                                 type="date",
                                 value=State.agenda_date,
                                 on_change=State.set_agenda_date,
                                 width="100%",
+                                min_width="0",
                                 size="3",
+                                style=FORM_FIELD_STYLE,
                             ),
                             align="stretch",
                             spacing="2",
                             width="100%",
+                            min_width="0",
+                            flex={"initial": "unset", "sm": "1"},
                         ),
                         rx.vstack(
-                            rx.text(
-                                "Profissional",
-                                size="2",
-                                weight="medium",
-                                color=COLORS["text"],
-                            ),
+                            field_label("Profissional"),
                             rx.select.root(
                                 rx.select.trigger(
                                     placeholder="Todos os profissionais",
                                     width="100%",
+                                    min_width="0",
+                                    style=FORM_FIELD_STYLE,
                                 ),
                                 rx.select.content(
                                     rx.foreach(
@@ -3798,30 +3905,34 @@ def admin_agenda_page() -> rx.Component:
                                 on_change=State.set_agenda_professional,
                                 size="3",
                                 width="100%",
+                                min_width="0",
                             ),
                             align="stretch",
                             spacing="2",
                             width="100%",
+                            min_width="0",
+                            flex={"initial": "unset", "sm": "1"},
                         ),
                         direction={"initial": "column", "sm": "row"},
                         spacing="4",
                         width="100%",
+                        min_width="0",
                     ),
                     align="stretch",
                     spacing="3",
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
             ),
             rx.vstack(
                 rx.cond(
                     State.agenda_loading,
-                    rx.text("Carregando agenda...", color=COLORS["muted"]),
+                    loading_state("Carregando agenda..."),
                     rx.cond(
                         State.agenda_error != "",
                         rx.text(
@@ -3831,15 +3942,9 @@ def admin_agenda_page() -> rx.Component:
                         ),
                         rx.cond(
                             State.agenda_items.length() == 0,
-                            rx.box(
-                                rx.text(
-                                    "Não há reservas para este dia e filtro.",
-                                    color=COLORS["muted"],
-                                ),
-                                width="100%",
-                                padding="22px",
-                                border=f"1px dashed {COLORS['border']}",
-                                border_radius="16px",
+                            empty_state(
+                                "Não há reservas para este dia e filtro.",
+                                "Selecione outra data ou outro profissional.",
                             ),
                             rx.vstack(
                                 rx.foreach(State.agenda_items, _agenda_card),
@@ -3855,9 +3960,9 @@ def admin_agenda_page() -> rx.Component:
                 width="100%",
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="820px",
+            max_width=MAX_WIDTHS["admin"],
         ),
         display="flex",
         justify_content="center",
@@ -3881,15 +3986,153 @@ def _admin_area_card(
         content,
         width="100%",
         min_height="112px",
-        padding={"initial": "18px", "sm": "22px"},
-        border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        style=INTERACTIVE_CARD_STYLE,
+        cursor="pointer" if href else "default",
     )
     if href:
         return rx.link(card, href=href, width="100%", underline="none")
     return card
+
+
+def _admin_metric_card(title: str, value: rx.Var[Any]) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.text(
+                title,
+                color=COLORS["muted"],
+                font_size="11px",
+                font_weight="700",
+                letter_spacing="0.16em",
+                text_transform="uppercase",
+            ),
+            rx.heading(
+                value,
+                size="5",
+                font_size="38px",
+                font_weight="600",
+                line_height="1",
+                color=COLORS["accent"],
+            ),
+            align="start",
+            spacing="3",
+            width="100%",
+        ),
+        style=METRIC_CARD_STYLE,
+    )
+
+
+def _admin_dashboard_details() -> rx.Component:
+    return rx.grid(
+        rx.box(
+            rx.vstack(
+                rx.heading("Serviços mais agendados na semana", size="4"),
+                rx.cond(
+                    State.admin_dashboard["top_services"].length() > 0,
+                    rx.foreach(
+                        State.admin_dashboard["top_services"],
+                        lambda service: rx.flex(
+                            rx.text(service["service_name"]),
+                            rx.text(
+                                rx.cond(
+                                    service["appointment_count"] == 1,
+                                    f"{service['appointment_count']} agendamento",
+                                    f"{service['appointment_count']} agendamentos",
+                                ),
+                                color=COLORS["muted"],
+                            ),
+                            justify="between",
+                            width="100%",
+                            gap="3",
+                        ),
+                    ),
+                    rx.text("Sem agendamentos nesta semana.", color=COLORS["muted"]),
+                ),
+                align="stretch",
+                spacing="3",
+                width="100%",
+            ),
+            style=PANEL_STYLE,
+        ),
+        rx.box(
+            rx.vstack(
+                rx.heading("Próximos horários de hoje", size="4"),
+                rx.cond(
+                    State.admin_dashboard["upcoming_today"].length() > 0,
+                    rx.foreach(
+                        State.admin_dashboard["upcoming_today"],
+                        lambda appointment: rx.box(
+                            rx.text(
+                                appointment["time_display"],
+                                weight="bold",
+                                color=COLORS["text"],
+                            ),
+                            rx.text(appointment["service_name"]),
+                            rx.text(
+                                appointment["professional_name"],
+                                color=COLORS["muted"],
+                            ),
+                            padding_y="2",
+                            border_bottom=f"1px solid {COLORS['border']}",
+                        ),
+                    ),
+                    rx.text("Não há próximos horários hoje.", color=COLORS["muted"]),
+                ),
+                align="stretch",
+                spacing="3",
+                width="100%",
+            ),
+            style=PANEL_STYLE,
+        ),
+        columns={"initial": "1", "md": "2"},
+        spacing="3",
+        width="100%",
+    )
+
+
+def _admin_dashboard_metrics() -> rx.Component:
+    return rx.cond(
+        State.dashboard_loading,
+        loading_state("Carregando indicadores..."),
+        rx.cond(
+            State.dashboard_error != "",
+            rx.text(
+                State.dashboard_error,
+                role="alert",
+                color=COLORS["error"],
+            ),
+            rx.cond(
+                State.admin_dashboard_loaded,
+                rx.vstack(
+                    rx.grid(
+                        _admin_metric_card(
+                            "Agendamentos hoje",
+                            State.admin_dashboard["appointments_today"],
+                        ),
+                        _admin_metric_card(
+                            "Agendamentos na semana",
+                            State.admin_dashboard["appointments_week"],
+                        ),
+                        _admin_metric_card(
+                            "Faturamento estimado",
+                            State.admin_dashboard["revenue_display"],
+                        ),
+                        _admin_metric_card(
+                            "Taxa de cancelamento",
+                            State.admin_dashboard["cancellation_display"],
+                        ),
+                        columns={"initial": "1", "sm": "2", "lg": "4"},
+                        spacing="4",
+                        width="100%",
+                    ),
+                    _admin_dashboard_details(),
+                    align="stretch",
+                    spacing="4",
+                    width="100%",
+                ),
+                rx.box(),
+            ),
+        ),
+    )
 
 
 def admin_dashboard_page() -> rx.Component:
@@ -3909,12 +4152,13 @@ def admin_dashboard_page() -> rx.Component:
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
             ),
+            _admin_dashboard_metrics(),
             rx.box(
                 rx.vstack(
                     rx.heading(
@@ -3927,7 +4171,7 @@ def admin_dashboard_page() -> rx.Component:
                         rx.link(
                             State.public_link,
                             href=State.public_link,
-                            color=COLORS["accent"],
+                            color=COLORS["accent_text"],
                             word_break="break-all",
                         ),
                         rx.text(
@@ -3956,20 +4200,11 @@ def admin_dashboard_page() -> rx.Component:
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
-            ),
-            rx.cond(
-                State.dashboard_loading,
-                rx.text("Carregando painel...", color=COLORS["muted"]),
-                rx.text(
-                    State.dashboard_error,
-                    role="alert",
-                    color=COLORS["error"],
-                ),
             ),
             rx.grid(
                 _admin_area_card(
@@ -3997,9 +4232,9 @@ def admin_dashboard_page() -> rx.Component:
                 width="100%",
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="820px",
+            max_width=MAX_WIDTHS["admin"],
         ),
         display="flex",
         justify_content="center",
@@ -4021,15 +4256,14 @@ def _professional_card(
                         min_width=0,
                         overflow_wrap="anywhere",
                     ),
-                    rx.badge(
+                    status_badge(
                         rx.cond(
                             professional["is_active"],
                             "Ativo",
                             "Inativo",
                         ),
-                        color_scheme=rx.cond(
-                            professional["is_active"], "green", "gray"
-                        ),
+                        professional["is_active"],
+                        neutral_when_inactive=True,
                     ),
                     align="center",
                     wrap="wrap",
@@ -4052,10 +4286,8 @@ def _professional_card(
                     on_click=State.begin_professional_edit(
                         professional["id"]
                     ),
-                    variant="outline",
-                    height="44px",
-                    color=COLORS["accent"],
-                    border_color=COLORS["border"],
+                    style=BUTTON_STYLES["secondary"],
+                    height="48px",
                     width={"initial": "100%", "sm": "auto"},
                 ),
                 rx.button(
@@ -4067,7 +4299,7 @@ def _professional_card(
                     on_click=State.toggle_professional_status(
                         professional["id"]
                     ),
-                    height="44px",
+                    height="48px",
                     color=COLORS["surface"],
                     background_color=COLORS["accent"],
                     _hover={"background_color": COLORS["accent_hover"]},
@@ -4076,6 +4308,7 @@ def _professional_card(
                 direction={"initial": "column", "sm": "row"},
                 spacing="2",
                 width={"initial": "100%", "sm": "auto"},
+                justify="end",
             ),
             direction={"initial": "column", "sm": "row"},
             align={"initial": "stretch", "sm": "center"},
@@ -4085,11 +4318,11 @@ def _professional_card(
         ),
         width="100%",
         min_width="0",
-        padding={"initial": "18px", "sm": "22px"},
+        padding=CARD_DEFAULT_PADDING,
         border=f"1px solid {COLORS['border']}",
-        border_radius="18px",
-        background_color=COLORS["surface"],
-        box_shadow=SHADOWS["tile"],
+        border_radius="20px",
+        background_color=COLORS["linen"],
+        box_shadow=SHADOWS["soft"],
     )
 
 
@@ -4110,9 +4343,9 @@ def admin_professionals_page() -> rx.Component:
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
             ),
@@ -4133,19 +4366,14 @@ def admin_professionals_page() -> rx.Component:
                         rx.callout(
                             "Cadastre um serviço ativo antes de criar um profissional.",
                             icon="info",
-                            color_scheme="ruby",
+                            style=CALLOUT_STYLES["info"],
                         ),
                         rx.box(),
                     ),
                     rx.form(
                         rx.vstack(
                             rx.vstack(
-                                rx.text(
-                                    "Nome",
-                                    size="2",
-                                    weight="medium",
-                                    color=COLORS["text"],
-                                ),
+                                field_label("Nome"),
                                 rx.input(
                                     name="professional_name",
                                     value=State.professional_name,
@@ -4174,12 +4402,7 @@ def admin_professionals_page() -> rx.Component:
                                 width="100%",
                             ),
                             rx.vstack(
-                                rx.text(
-                                    "Serviços que realiza",
-                                    size="2",
-                                    weight="medium",
-                                    color=COLORS["text"],
-                                ),
+                                field_label("Serviços que realiza"),
                                 rx.cond(
                                     State.professional_service_options.length()
                                     > 0,
@@ -4196,7 +4419,7 @@ def admin_professionals_page() -> rx.Component:
                                                 on_change=State.toggle_professional_service_selection(
                                                     service["id"]
                                                 ),
-                                                color_scheme="ruby",
+                                                color_scheme="brown",
                                             ),
                                         ),
                                         align="stretch",
@@ -4222,7 +4445,7 @@ def admin_professionals_page() -> rx.Component:
                             rx.text(
                                 State.professionals_notice,
                                 role="status",
-                                color=COLORS["accent"],
+                                color=COLORS["success"],
                                 size="2",
                             ),
                             rx.flex(
@@ -4233,7 +4456,7 @@ def admin_professionals_page() -> rx.Component:
                                         "Cadastrar profissional",
                                     ),
                                     type="submit",
-                                    height="52px",
+                                    height="48px",
                                     width={"initial": "100%", "sm": "auto"},
                                     disabled=(
                                         (State.professional_service_options.length()
@@ -4254,10 +4477,9 @@ def admin_professionals_page() -> rx.Component:
                                         "Cancelar edição",
                                         type="button",
                                         on_click=State.cancel_professional_edit,
-                                        variant="outline",
-                                        height="52px",
+                                        style=BUTTON_STYLES["secondary"],
+                                        height="48px",
                                         width={"initial": "100%", "sm": "auto"},
-                                        color=COLORS["accent"],
                                         border_color=COLORS["border"],
                                     ),
                                     rx.box(),
@@ -4281,9 +4503,9 @@ def admin_professionals_page() -> rx.Component:
                 ),
                 width="100%",
                 min_width="0",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["card"],
             ),
@@ -4295,10 +4517,7 @@ def admin_professionals_page() -> rx.Component:
                 ),
                 rx.cond(
                     State.professionals_loading,
-                    rx.text(
-                        "Carregando profissionais...",
-                        color=COLORS["muted"],
-                    ),
+                    loading_state("Carregando profissionais..."),
                     rx.cond(
                         State.professionals_error != "",
                         rx.text(
@@ -4308,31 +4527,18 @@ def admin_professionals_page() -> rx.Component:
                         ),
                         rx.cond(
                             State.professional_items.length() == 0,
-                            rx.box(
-                                rx.vstack(
-                                    rx.text(
-                                        "Sua empresa ainda não tem profissionais cadastrados.",
-                                        color=COLORS["muted"],
-                                    ),
-                                    rx.link(
-                                        rx.button(
-                                            "Cadastrar o primeiro profissional",
-                                            height="48px",
-                                            width="100%",
-                                            background_color=COLORS["accent"],
-                                            color=COLORS["surface"],
-                                        ),
-                                        href="#professional-form",
+                            empty_state(
+                                "Sua empresa ainda não tem profissionais cadastrados.",
+                                action=rx.link(
+                                    rx.button(
+                                        "Cadastrar o primeiro profissional",
+                                        height="48px",
                                         width="100%",
+                                        style=BUTTON_STYLES["primary"],
                                     ),
-                                    align="stretch",
-                                    spacing="3",
+                                    href="#professional-form",
                                     width="100%",
                                 ),
-                                width="100%",
-                                padding="22px",
-                                border=f"1px dashed {COLORS['border']}",
-                                border_radius="16px",
                             ),
                             rx.vstack(
                                 rx.foreach(
@@ -4351,9 +4557,9 @@ def admin_professionals_page() -> rx.Component:
                 width="100%",
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="820px",
+            max_width=MAX_WIDTHS["admin"],
         ),
         display="flex",
         justify_content="center",
@@ -4373,22 +4579,14 @@ def admin_services_page() -> rx.Component:
                         color=COLORS["text"],
                     ),
                     rx.text(State.company_name, color=COLORS["muted"]),
-                    rx.link(
-                        rx.text(
-                            f"/agendar/{State.company_identifier}",
-                            word_break="break-all",
-                        ),
-                        href=f"/agendar/{State.company_identifier}",
-                        color=COLORS["accent"],
-                    ),
                     align="stretch",
                     spacing="2",
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["tile"],
             ),
@@ -4442,7 +4640,7 @@ def admin_services_page() -> rx.Component:
                             rx.text(
                                 State.services_notice,
                                 role="status",
-                                color=COLORS["accent"],
+                                color=COLORS["success"],
                                 size="2",
                             ),
                             rx.flex(
@@ -4453,7 +4651,7 @@ def admin_services_page() -> rx.Component:
                                         "Cadastrar serviço",
                                     ),
                                     type="submit",
-                                    height="52px",
+                                    height="48px",
                                     width={"initial": "100%", "sm": "auto"},
                                     background_color=COLORS["accent"],
                                     color=COLORS["surface"],
@@ -4467,10 +4665,9 @@ def admin_services_page() -> rx.Component:
                                         "Cancelar edição",
                                         type="button",
                                         on_click=State.cancel_service_edit,
-                                        variant="outline",
-                                        height="52px",
+                                        style=BUTTON_STYLES["secondary"],
+                                        height="48px",
                                         width={"initial": "100%", "sm": "auto"},
-                                        color=COLORS["accent"],
                                         border_color=COLORS["border"],
                                     ),
                                     rx.box(),
@@ -4493,9 +4690,9 @@ def admin_services_page() -> rx.Component:
                     width="100%",
                 ),
                 width="100%",
-                padding={"initial": "20px", "sm": "26px"},
+                padding=CARD_DEFAULT_PADDING,
                 border=f"1px solid {COLORS['border']}",
-                border_radius="20px",
+                border_radius="28px",
                 background_color=COLORS["surface"],
                 box_shadow=SHADOWS["card"],
             ),
@@ -4503,7 +4700,7 @@ def admin_services_page() -> rx.Component:
                 rx.heading("Catálogo", size="5", color=COLORS["text"]),
                 rx.cond(
                     State.services_loading,
-                    rx.text("Carregando serviços...", color=COLORS["muted"]),
+                    loading_state("Carregando serviços..."),
                     rx.cond(
                         State.services_error != "",
                         rx.text(
@@ -4513,30 +4710,17 @@ def admin_services_page() -> rx.Component:
                         ),
                         rx.cond(
                             State.service_items.length() == 0,
-                            rx.box(
-                                rx.vstack(
-                                    rx.text(
-                                        "Sua empresa ainda não tem serviços cadastrados.",
-                                        color=COLORS["muted"],
+                            empty_state(
+                                "Sua empresa ainda não tem serviços cadastrados.",
+                                action=rx.link(
+                                    rx.button(
+                                        "Cadastrar o primeiro serviço",
+                                        height="48px",
+                                        style=BUTTON_STYLES["primary"],
                                     ),
-                                    rx.link(
-                                        rx.button(
-                                            "Cadastrar o primeiro serviço",
-                                            height="48px",
-                                            background_color=COLORS["accent"],
-                                            color=COLORS["surface"],
-                                        ),
-                                        href="#service-form",
-                                        width="100%",
-                                    ),
-                                    align="stretch",
-                                    spacing="3",
+                                    href="#service-form",
                                     width="100%",
                                 ),
-                                width="100%",
-                                padding="22px",
-                                border=f"1px dashed {COLORS['border']}",
-                                border_radius="16px",
                             ),
                             rx.vstack(
                                 rx.foreach(State.service_items, _service_card),
@@ -4552,9 +4736,9 @@ def admin_services_page() -> rx.Component:
                 width="100%",
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="820px",
+            max_width=MAX_WIDTHS["admin"],
         ),
         display="flex",
         justify_content="center",
@@ -4588,9 +4772,9 @@ def _public_service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
                 rx.cond(selected, "Selecionado", "Escolher"),
                 on_click=State.select_booking_service(service["id"]),
                 variant=rx.cond(selected, "solid", "outline"),
-                color_scheme="ruby",
+                color_scheme="brown",
                 width={"initial": "100%", "sm": "auto"},
-                height="44px",
+                height="48px",
             ),
             direction={"initial": "column", "sm": "row"},
             align={"initial": "stretch", "sm": "center"},
@@ -4627,8 +4811,8 @@ def _choice_button(
         label,
         on_click=on_click,
         variant=rx.cond(selected, "solid", "outline"),
-        color_scheme="ruby",
-        height="44px",
+        color_scheme="brown",
+        height="48px",
         min_width="88px",
     )
 
@@ -4639,7 +4823,7 @@ def _booking_professional_step() -> rx.Component:
         "Profissional",
         rx.cond(
             State.booking_professionals_loading,
-            rx.text("Carregando profissionais...", color=COLORS["muted"]),
+            loading_state("Carregando profissionais..."),
             rx.cond(
                 State.booking_professionals_error != "",
                 rx.text(
@@ -4677,7 +4861,7 @@ def _booking_day_button(day: rx.Var[dict[str, Any]]) -> rx.Component:
         on_click=State.set_booking_date(day["date"]),
         disabled=~day["available"].to(bool),
         variant=rx.cond(selected, "solid", "outline"),
-        color_scheme=rx.cond(day["available"].to(bool), "ruby", "gray"),
+        color_scheme=rx.cond(day["available"].to(bool), "brown", "gray"),
         text_decoration=rx.cond(day["available"].to(bool), "none", "line-through"),
         aria_label=rx.cond(
             day["available"].to(bool),
@@ -4701,7 +4885,7 @@ def _booking_day_step() -> rx.Component:
         ),
         rx.cond(
             State.booking_days_loading,
-            rx.text("Carregando dias disponíveis...", color=COLORS["muted"]),
+            loading_state("Carregando dias disponíveis..."),
             rx.cond(
                 State.booking_days_error != "",
                 rx.text(
@@ -4719,7 +4903,7 @@ def _booking_day_step() -> rx.Component:
         ),
         rx.cond(
             State.booking_slots_loading,
-            rx.text("Carregando horários...", color=COLORS["muted"]),
+            loading_state("Carregando horários..."),
             rx.cond(
                 State.booking_slots_error != "",
                 rx.text(
@@ -4787,7 +4971,7 @@ def _booking_summary_step() -> rx.Component:
                 on_click=State.confirm_booking,
                 loading=State.booking_submitting,
                 width="100%",
-                height="52px",
+                height="48px",
                 background_color=COLORS["accent"],
                 color=COLORS["surface"],
                 _hover={"background_color": COLORS["accent_hover"]},
@@ -4803,7 +4987,7 @@ def _booking_summary_step() -> rx.Component:
                         "Entrar para confirmar",
                         on_click=State.start_booking_auth("login"),
                         flex="1",
-                        height="52px",
+                        height="48px",
                         background_color=COLORS["accent"],
                         color=COLORS["surface"],
                         _hover={"background_color": COLORS["accent_hover"]},
@@ -4812,9 +4996,8 @@ def _booking_summary_step() -> rx.Component:
                         "Criar conta",
                         on_click=State.start_booking_auth("cadastro"),
                         flex="1",
-                        height="52px",
-                        variant="outline",
-                        color=COLORS["accent"],
+                        height="48px",
+                        style=BUTTON_STYLES["secondary"],
                     ),
                     direction={"initial": "column", "sm": "row"},
                     spacing="3",
@@ -4834,7 +5017,7 @@ def _booking_confirmation() -> rx.Component:
         rx.callout(
             "Agendamento confirmado!",
             icon="info",
-            color_scheme="green",
+            style=CALLOUT_STYLES["success"],
             width="100%",
         ),
         _panel(
@@ -4865,7 +5048,7 @@ def _booking_confirmation() -> rx.Component:
                 rx.button(
                     "Ver meus agendamentos",
                     width="100%",
-                    height="52px",
+                    height="48px",
                     background_color=COLORS["accent"],
                     color=COLORS["surface"],
                 ),
@@ -4876,9 +5059,8 @@ def _booking_confirmation() -> rx.Component:
                 "Fazer outro agendamento",
                 on_click=State.new_booking,
                 flex="1",
-                height="52px",
-                variant="outline",
-                color=COLORS["accent"],
+                height="48px",
+                style=BUTTON_STYLES["secondary"],
             ),
             direction={"initial": "column", "sm": "row"},
             spacing="3",
@@ -4895,7 +5077,7 @@ def _booking_flow() -> rx.Component:
         rx.heading("1. Serviço", size="5", color=COLORS["text"]),
         rx.cond(
             State.public_services_loading,
-            rx.text("Carregando serviços...", color=COLORS["muted"]),
+            loading_state("Carregando serviços..."),
             rx.cond(
                 State.public_services_error != "",
                 rx.text(
@@ -4905,9 +5087,10 @@ def _booking_flow() -> rx.Component:
                 ),
                 rx.cond(
                     State.public_service_items.length() == 0,
-                    rx.text(
+                    empty_state(
                         "Esta empresa ainda não tem serviços disponíveis.",
-                        color=COLORS["muted"],
+                        "Entre em contato com o salão para saber quando novos "
+                        "serviços estarão disponíveis.",
                     ),
                     rx.vstack(
                         rx.foreach(
@@ -4941,7 +5124,7 @@ def _booking_flow() -> rx.Component:
             rx.callout(
                 State.booking_message,
                 icon="triangle_alert",
-                color_scheme="ruby",
+                style=CALLOUT_STYLES["error"],
                 role="alert",
                 width="100%",
             ),
@@ -5005,12 +5188,12 @@ def public_company_page() -> rx.Component:
                     align="stretch",
                     width="100%",
                 ),
-                style={**CARD_STYLE, "max_width": "720px"},
+                style={**PANEL_STYLE, "max_width": MAX_WIDTHS["client"]},
             ),
             align="center",
-            spacing="6",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="720px",
+            max_width=MAX_WIDTHS["client"],
         ),
         display="flex",
         justify_content="center",

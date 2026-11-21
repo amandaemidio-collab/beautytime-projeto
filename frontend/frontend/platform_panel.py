@@ -9,23 +9,29 @@ import reflex as rx
 from frontend.api_client import request_json, request_json_list
 from frontend.api_config import api_url
 from frontend.formatting import price_label
-from frontend.theme import COLORS, FONT_FAMILY, SHADOWS
+from frontend.theme import (
+    BADGE_STYLES,
+    BUTTON_STYLES,
+    CARD_DEFAULT_PADDING,
+    COLORS,
+    FORM_FIELD_STYLE,
+    FONT_FAMILY,
+    MAX_WIDTHS,
+    METRIC_CARD_STYLE,
+    MENU_STYLE,
+    PAGE_STYLE,
+    PAGE_SECTION_GAP,
+    PANEL_STYLE,
+    SHADOWS,
+    brand,
+    empty_state,
+    error_callout,
+    field_label,
+    loading_state,
+    status_badge,
+)
 
 SAO_PAULO = timezone(timedelta(hours=-3), "America/Sao_Paulo")
-PAGE_STYLE = {
-    "min_height": "100vh",
-    "background_color": COLORS["background"],
-    "font_family": FONT_FAMILY,
-    "padding": rx.breakpoints(initial="24px 16px", md="42px 24px"),
-}
-PANEL_STYLE = {
-    "width": "100%",
-    "padding": rx.breakpoints(initial="18px", sm="24px"),
-    "border": f"1px solid {COLORS['border']}",
-    "border_radius": "18px",
-    "background_color": COLORS["surface"],
-    "box_shadow": SHADOWS["tile"],
-}
 
 
 def _api_message(status: int, data: dict[str, object] | list[object]) -> str:
@@ -50,7 +56,7 @@ def _field(
     default_value: Any = None,
 ) -> rx.Component:
     return rx.vstack(
-        rx.text(label, size="2", weight="medium", color=COLORS["text"]),
+        field_label(label),
         rx.input(
             name=name,
             type=input_type,
@@ -59,6 +65,7 @@ def _field(
             default_value=default_value,
             width="100%",
             size="3",
+            style=FORM_FIELD_STYLE,
         ),
         align="stretch",
         spacing="2",
@@ -352,7 +359,9 @@ class PlatformState(rx.State):
             cancellation_percent = float(dashboard.get("cancellation_rate", 0)) * 100
         except (TypeError, ValueError):
             cancellation_percent = 0
-        dashboard["cancellation_display"] = f"{cancellation_percent:.1f}%"
+        dashboard["cancellation_display"] = (
+            f"{cancellation_percent:.1f}".rstrip("0").rstrip(".") + "%"
+        )
         top_services = dashboard.get("top_services")
         dashboard["top_services"] = (
             top_services if isinstance(top_services, list) else []
@@ -528,30 +537,60 @@ class PlatformState(rx.State):
 
 
 def _header() -> rx.Component:
-    return rx.flex(
-        rx.link(
-            rx.heading("BeautyTime · Plataforma", size="5", color=COLORS["accent"]),
-            href="/platform",
-            underline="none",
+    active = PlatformState.router.url.path != "/platform/login"
+    logo = rx.link(
+        rx.hstack(
+            brand(),
+            rx.text(
+                "· Plataforma",
+                font_family=FONT_FAMILY,
+                font_size="14px",
+                color=COLORS["muted"],
+            ),
+            align="baseline",
+            spacing="2",
         ),
+        href="/platform",
+        underline="none",
+    )
+    menu_link = rx.link(
+        "Salões",
+        href="/platform",
+        color=rx.cond(active, COLORS["primary_foreground"], COLORS["muted"]),
+        font_size="14px",
+        font_weight="600",
+        background_color=rx.cond(active, COLORS["accent"], "transparent"),
+        padding="8px 16px",
+        border_radius="999px",
+        min_height="40px",
+        display="flex",
+        align_items="center",
+        white_space="nowrap",
+        aria_current=rx.cond(active, "page", "false"),
+    )
+    return rx.vstack(
         rx.flex(
-            rx.link("Salões", href="/platform", color=COLORS["accent"]),
-            rx.text(PlatformState.user_name, color=COLORS["muted"]),
+            logo,
             rx.button(
                 "Sair",
                 on_click=PlatformState.logout,
-                variant="outline",
-                color=COLORS["accent"],
-                border_color=COLORS["border"],
+                style=BUTTON_STYLES["ghost"],
+                min_height="40px",
             ),
             align="center",
-            wrap="wrap",
-            spacing="4",
+            justify="between",
+            width="100%",
         ),
-        direction={"initial": "column", "sm": "row"},
-        align={"initial": "stretch", "sm": "center"},
-        justify="between",
-        spacing="4",
+        rx.flex(
+            menu_link,
+            rx.text(PlatformState.user_name, color=COLORS["muted"]),
+            align="center",
+            justify="between",
+            width="100%",
+            style=MENU_STYLE,
+        ),
+        align="stretch",
+        spacing="3",
         width="100%",
     )
 
@@ -573,11 +612,7 @@ def platform_login_page() -> rx.Component:
                 _field("Senha", "password", input_type="password"),
                 rx.cond(
                     PlatformState.login_error != "",
-                    rx.text(
-                        PlatformState.login_error,
-                        color=COLORS["error"],
-                        role="alert",
-                    ),
+                    error_callout(PlatformState.login_error),
                     rx.fragment(),
                 ),
                 rx.button(
@@ -585,7 +620,7 @@ def platform_login_page() -> rx.Component:
                     type="submit",
                     disabled=PlatformState.login_loading,
                     width="100%",
-                    height="50px",
+                    height="48px",
                     background_color=COLORS["accent"],
                     color=COLORS["surface"],
                 ),
@@ -596,10 +631,10 @@ def platform_login_page() -> rx.Component:
             on_submit=PlatformState.login,
             reset_on_submit=False,
             width="100%",
-            max_width="480px",
-            padding="28px",
+            max_width=MAX_WIDTHS["platform_login"],
+            padding=CARD_DEFAULT_PADDING,
             border=f"1px solid {COLORS['border']}",
-            border_radius="22px",
+            border_radius="28px",
             background_color=COLORS["surface"],
             box_shadow=SHADOWS["card"],
         ),
@@ -626,9 +661,18 @@ def _account_card(account: rx.Var[dict[str, Any]]) -> rx.Component:
                 spacing="2",
             ),
             rx.flex(
-                rx.badge(f"Serviços: {account['service_count']}"),
-                rx.badge(f"Profissionais: {account['professional_count']}"),
-                rx.badge(f"Agendamentos: {account['appointment_count']}"),
+                rx.badge(
+                    f"Serviços: {account['service_count']}",
+                    style=BADGE_STYLES["outline"],
+                ),
+                rx.badge(
+                    f"Profissionais: {account['professional_count']}",
+                    style=BADGE_STYLES["outline"],
+                ),
+                rx.badge(
+                    f"Agendamentos: {account['appointment_count']}",
+                    style=BADGE_STYLES["outline"],
+                ),
                 wrap="wrap",
                 spacing="2",
             ),
@@ -671,9 +715,8 @@ def platform_home_page() -> rx.Component:
                 rx.button(
                     "Buscar",
                     type="submit",
-                    height="46px",
-                    background_color=COLORS["accent"],
-                    color=COLORS["surface"],
+                    height="48px",
+                    style=BUTTON_STYLES["primary"],
                 ),
                 on_submit=PlatformState.search_accounts,
                 reset_on_submit=False,
@@ -681,7 +724,7 @@ def platform_home_page() -> rx.Component:
             ),
             rx.cond(
                 PlatformState.accounts_loading,
-                rx.text("Carregando salões...", color=COLORS["muted"]),
+                loading_state("Carregando salões..."),
                 rx.fragment(),
             ),
             rx.cond(
@@ -705,19 +748,16 @@ def platform_home_page() -> rx.Component:
                     PlatformState.accounts_loading
                     | (PlatformState.accounts_error != ""),
                     rx.fragment(),
-                    rx.box(
-                        rx.text(
-                            "Nenhum salão corresponde aos filtros.",
-                            color=COLORS["muted"],
-                        ),
-                        style=PANEL_STYLE,
+                    empty_state(
+                        "Nenhum salão corresponde aos filtros.",
+                        "Revise os termos ou tente uma busca diferente.",
                     ),
                 ),
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="1100px",
+            max_width=MAX_WIDTHS["platform"],
         ),
         display="flex",
         justify_content="center",
@@ -728,12 +768,26 @@ def platform_home_page() -> rx.Component:
 def _metric_card(title: str, value: rx.Var[Any]) -> rx.Component:
     return rx.box(
         rx.vstack(
-            rx.text(title, color=COLORS["muted"], size="2"),
-            rx.heading(value, size="5", color=COLORS["text"]),
+            rx.text(
+                title,
+                color=COLORS["muted"],
+                font_size="11px",
+                font_weight="700",
+                letter_spacing="0.16em",
+                text_transform="uppercase",
+            ),
+            rx.heading(
+                value,
+                size="5",
+                font_size="38px",
+                font_weight="600",
+                line_height="1",
+                color=COLORS["accent"],
+            ),
             align="start",
-            spacing="2",
+            spacing="3",
         ),
-        style=PANEL_STYLE,
+        style=METRIC_CARD_STYLE,
     )
 
 
@@ -764,7 +818,7 @@ def _account_editor() -> rx.Component:
                     "Cancelar",
                     type="button",
                     on_click=PlatformState.cancel_edit,
-                    variant="outline",
+                    style=BUTTON_STYLES["secondary"],
                 ),
                 spacing="3",
             ),
@@ -784,8 +838,7 @@ def _account_tab() -> rx.Component:
             rx.button(
                 "Editar",
                 on_click=PlatformState.begin_account_edit,
-                variant="outline",
-                color=COLORS["accent"],
+                style=BUTTON_STYLES["secondary"],
             ),
             justify="between",
             align="center",
@@ -853,7 +906,7 @@ def _service_editor(service: rx.Var[dict[str, Any]]) -> rx.Component:
                     "Cancelar",
                     type="button",
                     on_click=PlatformState.cancel_edit,
-                    variant="outline",
+                    style=BUTTON_STYLES["secondary"],
                 ),
                 spacing="3",
             ),
@@ -871,9 +924,10 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
         rx.vstack(
             rx.flex(
                 rx.heading(service["name"], size="4", color=COLORS["text"]),
-                rx.badge(
+                status_badge(
                     rx.cond(service["is_active"], "Ativo", "Inativo"),
-                    color_scheme=rx.cond(service["is_active"], "green", "gray"),
+                    service["is_active"],
+                    neutral_when_inactive=True,
                 ),
                 justify="between",
                 align="center",
@@ -896,8 +950,7 @@ def _service_card(service: rx.Var[dict[str, Any]]) -> rx.Component:
                     on_click=PlatformState.begin_service_edit(
                         service["id"], service["is_active"]
                     ),
-                    variant="outline",
-                    color=COLORS["accent"],
+                    style=BUTTON_STYLES["secondary"],
                 ),
             ),
             align="stretch",
@@ -919,7 +972,10 @@ def _services_tab() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            rx.text("Este salão ainda não tem serviços.", color=COLORS["muted"]),
+            empty_state(
+                "Este salão ainda não tem serviços.",
+                "Cadastre os serviços pelo painel do salão.",
+            ),
         ),
         align="stretch",
         spacing="4",
@@ -949,7 +1005,7 @@ def _professional_editor(
                     "Cancelar",
                     type="button",
                     on_click=PlatformState.cancel_edit,
-                    variant="outline",
+                    style=BUTTON_STYLES["secondary"],
                 ),
                 spacing="3",
             ),
@@ -967,11 +1023,10 @@ def _professional_card(professional: rx.Var[dict[str, Any]]) -> rx.Component:
         rx.vstack(
             rx.flex(
                 rx.heading(professional["name"], size="4", color=COLORS["text"]),
-                rx.badge(
+                status_badge(
                     rx.cond(professional["is_active"], "Ativo", "Inativo"),
-                    color_scheme=rx.cond(
-                        professional["is_active"], "green", "gray"
-                    ),
+                    professional["is_active"],
+                    neutral_when_inactive=True,
                 ),
                 justify="between",
                 align="center",
@@ -985,8 +1040,7 @@ def _professional_card(professional: rx.Var[dict[str, Any]]) -> rx.Component:
                     on_click=PlatformState.begin_professional_edit(
                         professional["id"], professional["is_active"]
                     ),
-                    variant="outline",
-                    color=COLORS["accent"],
+                    style=BUTTON_STYLES["secondary"],
                 ),
             ),
             align="stretch",
@@ -1008,7 +1062,10 @@ def _professionals_tab() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            rx.text("Este salão ainda não tem profissionais.", color=COLORS["muted"]),
+            empty_state(
+                "Este salão ainda não tem profissionais.",
+                "Cadastre os profissionais pelo painel do salão.",
+            ),
         ),
         align="stretch",
         spacing="4",
@@ -1017,12 +1074,19 @@ def _professionals_tab() -> rx.Component:
 
 
 def _tab_button(label: str, tab: str) -> rx.Component:
+    active = PlatformState.active_tab == tab
     return rx.button(
         label,
         on_click=PlatformState.select_tab(tab),
-        variant="soft",
-        color=COLORS["accent"],
-        height="44px",
+        background_color=rx.cond(active, COLORS["accent"], COLORS["secondary"]),
+        color=rx.cond(
+            active,
+            COLORS["primary_foreground"],
+            COLORS["accent"],
+        ),
+        border_radius="999px",
+        min_height="40px",
+        padding_x="16px",
     )
 
 
@@ -1056,7 +1120,11 @@ def _dashboard_details() -> rx.Component:
                         lambda service: rx.flex(
                             rx.text(service["service_name"]),
                             rx.text(
-                                f"{service['appointment_count']} agendamentos",
+                                rx.cond(
+                                    service["appointment_count"] == 1,
+                                    f"{service['appointment_count']} agendamento",
+                                    f"{service['appointment_count']} agendamentos",
+                                ),
                                 color=COLORS["muted"],
                             ),
                             justify="between",
@@ -1096,7 +1164,7 @@ def _dashboard_details() -> rx.Component:
             style=PANEL_STYLE,
         ),
         columns={"initial": "1", "md": "2"},
-        spacing="4",
+        spacing="3",
         width="100%",
     )
 
@@ -1107,7 +1175,7 @@ def platform_salon_page() -> rx.Component:
             _header(),
             rx.cond(
                 PlatformState.detail_loading,
-                rx.text("Carregando dados do salão...", color=COLORS["muted"]),
+                loading_state("Carregando dados do salão..."),
                 rx.fragment(),
             ),
             rx.cond(
@@ -1128,7 +1196,12 @@ def platform_salon_page() -> rx.Component:
                     _dashboard_details(),
                     rx.cond(
                         PlatformState.notice != "",
-                        rx.text(PlatformState.notice, color=COLORS["accent"]),
+                        rx.text(
+                            PlatformState.notice,
+                            color=COLORS["success"],
+                            role="status",
+                            aria_live="polite",
+                        ),
                         rx.fragment(),
                     ),
                     rx.cond(
@@ -1158,15 +1231,15 @@ def platform_salon_page() -> rx.Component:
                         ),
                     ),
                     align="stretch",
-                    spacing="5",
+                    spacing=PAGE_SECTION_GAP,
                     width="100%",
                 ),
                 rx.fragment(),
             ),
             align="stretch",
-            spacing="5",
+            spacing=PAGE_SECTION_GAP,
             width="100%",
-            max_width="1100px",
+            max_width=MAX_WIDTHS["platform"],
         ),
         display="flex",
         justify_content="center",

@@ -1,0 +1,112 @@
+{
+  "name": "BeautyTime — Atelier",
+  "version": "2.0.0",
+  "colors": {
+    "background": { "oklch": "oklch(0.965 0.012 75)", "hex": "#F6F1EA", "use": "Fundo das páginas (com brilho radial suave no topo)" },
+    "linen": { "oklch": "oklch(0.985 0.006 80)", "hex": "#FCFAF6", "use": "Fundo de campos, tiles internos e listas" },
+    "surface": { "oklch": "oklch(0.995 0.003 80)", "hex": "#FFFEFC", "use": "Cards e painéis" },
+    "foreground": { "oklch": "oklch(0.26 0.018 50)", "hex": "#2E2620", "use": "Texto principal e títulos" },
+    "mutedForeground": { "oklch": "oklch(0.5 0.02 55)", "hex": "#75675C", "use": "Texto secundário" },
+    "primary": { "oklch": "oklch(0.36 0.035 50)", "hex": "#4A3A2E", "use": "Botão principal, menu ativo, seleção" },
+    "primaryHover": { "oklch": "oklch(0.29 0.03 50)", "hex": "#382B22" },
+    "primaryForeground": { "oklch": "oklch(0.975 0.01 80)", "hex": "#FAF6F0" },
+    "secondary": { "oklch": "oklch(0.925 0.02 70)", "hex": "#EBE1D5", "use": "Botão suave, avisos informativos, selo neutro" },
+    "sand": { "oklch": "oklch(0.88 0.03 70)", "hex": "#DDCDB9", "use": "Borda tracejada de vazio, divisores decorativos" },
+    "gold": { "oklch": "oklch(0.7 0.07 70)", "hex": "#BF9C72", "use": "Detalhe decorativo, ícones, anel de foco" },
+    "border": { "oklch": "oklch(0.9 0.017 70)", "hex": "#E6DCD0" },
+    "input": { "oklch": "oklch(0.88 0.02 70)", "hex": "#DED3C6" },
+    "success": { "oklch": "oklch(0.45 0.07 155)", "hex": "#2F6648" },
+    "successSoft": { "oklch": "oklch(0.95 0.025 155)", "hex": "#E6F2EA" },
+    "warning": { "oklch": "oklch(0.5 0.09 70)", "hex": "#8A6224" },
+    "warningSoft": { "oklch": "oklch(0.95 0.035 85)", "hex": "#F7EEDA" },
+    "error": { "oklch": "oklch(0.47 0.12 20)", "hex": "#9A3B42" },
+    "errorSoft": { "oklch": "oklch(0.95 0.025 20)", "hex": "#FAE9EA" }
+  },
+  "typography": {
+    "families": {
+      "display": "\"Cormorant Garamond\", Georgia, serif (500, 600, 700, itálico 500)",
+      "body": "\"Manrope\", ui-sans-serif, system-ui, sans-serif (400, 500, 600, 700)"
+    },
+    "scale": {
+      "brand": { "size": "30px", "weight": 600, "letterSpacing": "-0.02em", "family": "display", "note": "'Time' em itálico dourado" },
+      "h1": { "mobile": "32–34px", "desktop": "40–46px", "weight": 600, "lineHeight": 1.15 },
+      "h2": { "size": "24–28px", "weight": 600 },
+      "h3": { "size": "22–24px", "weight": 600 },
+      "metricValue": { "size": "38px", "weight": 600, "family": "display", "lineHeight": 1 },
+      "body": { "size": "15px", "lineHeight": 1.6 },
+      "small": { "size": "13–14px" },
+      "label": { "size": "14px", "weight": 600 },
+      "button": { "size": "15px", "weight": 600 },
+      "eyebrow": { "size": "11px", "weight": 700, "letterSpacing": "0.16em", "transform": "uppercase" },
+      "badge": { "size": "12px", "weight": 700 },
+      "input": { "size": "16px" }
+    }
+  },
+  "spacing": {
+    "base": "4px",
+    "scale": { "1": "4px", "2": "8px", "3": "12px", "4": "16px", "5": "20px", "6": "24px", "7": "28px", "8": "32px", "10": "40px", "12": "48px", "16": "64px" },
+    "pageShell": { "mobile": "32px 20px 64px", "desktop": "56px 32px 64px" },
+    "sectionGap": { "mobile": "24px", "desktop": "32px" },
+    "maxWidths": { "auth": "520px", "platformLogin": "480px", "client": "720px", "admin": "820px", "home": "900px", "platform": "1100px" }
+  },
+  "radii": { "sm": "10px", "md": "14px (campos, avisos)", "lg": "20px (tiles, métricas)", "xl": "28px (cards e painéis)", "pill": "999px (botões, selos, menu)" },
+  "shadows": {
+    "soft": "0 1px 2px oklch(0.3 0.02 50 / .04), 0 4px 14px -6px oklch(0.3 0.02 50 / .08)",
+    "card": "0 1px 2px oklch(0.3 0.02 50 / .04), 0 18px 40px -18px oklch(0.3 0.02 50 / .16)",
+    "lift": "0 2px 4px oklch(0.3 0.02 50 / .05), 0 26px 50px -20px oklch(0.3 0.02 50 / .24)",
+    "button": "inset 0 1px 0 oklch(1 0 0 / .12), 0 8px 18px -8px oklch(0.3 0.03 50 / .45)",
+    "focusInput": "0 0 0 4px color-mix(in oklab, gold 25%, transparent)"
+  },
+  "focus": { "outline": "3px solid gold", "offset": "2px" },
+  "motion": { "duration": "200ms", "easing": "ease", "press": "scale(0.98)", "hoverLift": "translateY(-2px) + shadow lift + borda gold" },
+  "breakpoints": { "sm": "640px", "md": "768px", "lg": "1024px" },
+  "components": {
+    "button": {
+      "base": { "minHeight": "48px", "paddingX": "24px", "radius": "pill", "font": "15px/600", "gap": "8px" },
+      "sizes": { "sm": "40px altura, 16px lateral, 14px", "md": "48px", "lg": "56px altura, 32px lateral, 16px" },
+      "variants": {
+        "primary": "fundo primary, texto primaryForeground, sombra button; hover primaryHover",
+        "secondary": "fundo surface, borda input; hover borda gold e fundo linen",
+        "soft": "fundo secondary; hover sand",
+        "ghost": "transparente, texto primary; hover secondary",
+        "danger": "fundo error, texto claro",
+        "dangerOutline": "fundo surface, borda error 30%, texto error; hover errorSoft",
+        "link": "texto primary, sublinhado gold 60% com offset 4px"
+      },
+      "states": { "disabled": "opacidade 45%, sem clique", "focus": "outline gold 3px", "active": "scale 0.98" },
+      "width": "100% no mobile para ações principais; automático a partir de sm"
+    },
+    "field": {
+      "layout": "rótulo acima (14px/600), gap 8px, ajuda 13px muted abaixo, erro 13px error com ícone e role=alert",
+      "control": { "minHeight": "48px", "paddingX": "16px", "radius": "14px", "background": "linen", "border": "1px input", "font": "16px" },
+      "states": { "focus": "borda primary, fundo surface, halo gold 25% 4px", "error": "borda error", "placeholder": "mutedForeground 70%" },
+      "select": "mesmo controle, chevron à direita a 16px",
+      "textarea": "min-height 112px, padding vertical 12px",
+      "checkbox": "linha de 48px, raio 14px, fundo linen; marcado: borda primary e fundo secondary"
+    },
+    "card": {
+      "hero": { "padding": "24px mobile / 40px sm+", "radius": "28px", "shadow": "card", "border": "1px border" },
+      "default": { "padding": "24px mobile / 32px sm+", "radius": "28px", "shadow": "soft" },
+      "tile": { "padding": "20px mobile / 24px sm+", "radius": "20px", "shadow": "soft", "selected": "borda 2px primary, fundo linen" },
+      "interactive": "hover: translateY(-2px), sombra lift, borda gold; ícone seta gold"
+    },
+    "metricCard": { "padding": "20px", "radius": "20px", "shadow": "soft", "label": "eyebrow", "value": "display 38px primary", "gap": "12px", "grid": "1 → 2 (sm) → 4 (lg) colunas, gap 12px" },
+    "menu": {
+      "container": "card translúcido (surface 80%), raio 28px, padding 16/20px, sombra soft",
+      "item": { "height": "40px", "paddingX": "16px", "radius": "pill", "font": "14px/600", "idle": "mutedForeground; hover fundo secondary", "active": "fundo primary, texto primaryForeground, aria-current=page" },
+      "mobile": "itens em linha com rolagem horizontal; Sair em botão ghost ao lado da marca",
+      "tabs": "trilho pill com borda e padding 4px; aba ativa fundo primary"
+    },
+    "badge": {
+      "base": { "height": "28px", "paddingX": "12px", "radius": "pill", "font": "12px/700", "dot": "6px na cor do texto" },
+      "tones": { "success": "Ativo / Agendado — successSoft + success", "neutral": "Inativo — secondary + muted", "danger": "Cancelado — errorSoft + error", "warning": "warningSoft + warning", "outline": "contadores — surface + borda, sem ponto" }
+    },
+    "callout": { "padding": "16px", "radius": "14px", "icon": "18px", "tones": { "info": "secondary", "success": "successSoft", "error": "errorSoft, role=alert", "warning": "warningSoft (cancelamento tardio)" } },
+    "dialog": { "radius": "28px", "padding": "28px", "maxWidth": "448px (mobile: 100% - 40px)", "actions": "empilhadas no mobile (principal em cima), em linha à direita a partir de sm" },
+    "states": {
+      "empty": "borda 1px tracejada sand, fundo linen 60%, raio 20px, padding 40px 24px, ícone em círculo 48px secondary, título 15px/600, texto 14px muted, ação opcional",
+      "error": "callout tone error com ícone, texto da mensagem fixa ou da API; erros de campo inline abaixo do controle",
+      "loading": "texto de carregamento com ponto gold pulsante + blocos shimmer de 80px, raio 20px, aria-busy"
+    }
+  }
+}

@@ -1,6 +1,13 @@
 .venv/
 reflex.log
+.env
+.env.*
 .web/
+node_modules/
+__pycache__/
+*.pem
+*.key
+credentials.json
 
 # Backups locais do Xano (contêm dados e hashes de senha)
 backups/
