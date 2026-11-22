@@ -1,289 +1,221 @@
 # BeautyTime
 
+Plataforma web de agendamento para salões de beleza, barbearias e estúdios.
+
 ## 1. Apresentação
 
-O **BeautyTime** é uma aplicação web de agendamento online para salões de beleza, barbearias, esmalterias e estabelecimentos semelhantes.
+**BeautyTime** conecta clientes e salões em um só lugar. O salão cadastra seus serviços, sua equipe e os horários de atendimento, e recebe um link próprio para divulgar. A cliente encontra o salão (pelo link ou pela busca), escolhe o serviço, o profissional e o horário, e acompanha suas reservas.
 
-O sistema resolve problemas comuns de agendas organizadas por telefone, mensagens ou caderno: reduz a troca de mensagens para encontrar horários, evita conflitos de agendamento e permite que clientes consultem a disponibilidade sem depender do atendimento do salão.
+**Problema que resolve:** hoje muitos salões marcam horários por WhatsApp e telefone. Isso gera conversas longas, horários duplicados, esquecimentos e nenhuma visão do movimento do negócio. O BeautyTime organiza a agenda, mostra só horários realmente livres e dá ao salão um painel com os números da semana.
 
-O público-alvo é:
-
-- **Clientes** que desejam encontrar um salão, agendar serviços e acompanhar suas reservas.
-- **Donos e responsáveis por salões** que precisam organizar serviços, profissionais, horários e agenda.
-- **Administradores da plataforma BeautyTime** que operam e acompanham os salões cadastrados.
-
-O BeautyTime é multiempresa: cada salão administra somente os próprios dados. As clientes usam uma conta global e podem agendar em diferentes empresas.
+**Público-alvo:**
+- Clientes que querem marcar horário de forma rápida, a qualquer hora.
+- Donos de salões, barbearias e estúdios que querem organizar a agenda e acompanhar o negócio.
+- A equipe responsável pela plataforma, que acompanha e dá suporte a todos os salões.
 
 ## 2. Acesso ao aplicativo
 
-O aplicativo é executado localmente para desenvolvimento e demonstração; **não há deploy do frontend**. O backend e as APIs já estão publicados no Xano.
+A versão entregue **roda localmente** (não há deploy público). O backend (banco de dados e API) está publicado no **Xano**; o frontend em **Reflex** roda no computador.
 
-### Requisitos
+### Como rodar (Windows)
 
-- Windows com PowerShell.
-- Git.
-- Python compatível com as dependências do projeto.
-- Acesso à internet para instalar dependências e carregar as fontes web.
-
-### Clonar e instalar
-
-No PowerShell, escolha uma pasta de trabalho e execute:
+Pré-requisitos: Python 3.11+, Node.js e Git instalados.
 
 ```powershell
 git clone https://github.com/amandaemidio-collab/beautytime-projeto.git
 cd beautytime-projeto
-py -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-### Iniciar o frontend Reflex
-
-Ainda na raiz do repositório, entre na pasta `frontend` e inicie o app:
-
-```powershell
 cd frontend
 ..\.venv\Scripts\python.exe -m reflex run
 ```
 
-Quando o servidor estiver pronto, abra [http://localhost:3000](http://localhost:3000) no navegador. Para encerrar a execução local, use `Ctrl+C` no terminal em que o Reflex está rodando.
+Quando aparecer `App running at: http://localhost:3000`, abra o endereço no navegador.
 
-O frontend consome as APIs do Xano já configuradas no projeto. A inicialização local do Reflex não publica nem altera o backend.
+### Endereços principais
+
+| Página | Endereço |
+|---|---|
+| Página inicial | http://localhost:3000/ |
+| Encontrar salões | http://localhost:3000/saloes |
+| Login / cadastro da cliente | http://localhost:3000/clientes/login · http://localhost:3000/clientes/cadastro |
+| Meus agendamentos | http://localhost:3000/meus-agendamentos |
+| Página de um salão (link do salão) | http://localhost:3000/agendar/salao-aurora |
+| Login / cadastro do dono do salão | http://localhost:3000/admin/login · http://localhost:3000/admin/cadastro |
+| Painel do dono do salão | http://localhost:3000/admin |
+| Login do administrador da plataforma | http://localhost:3000/platform/login |
+
+> O login do administrador da plataforma não aparece em nenhum menu do app: o acesso é feito diretamente pelo endereço acima.
 
 ## 3. Perfis de usuários
 
-### Cliente (`client`)
+| Perfil | Quem é | O que pode fazer | O que não pode fazer |
+|---|---|---|---|
+| **Cliente** | Pessoa que agenda serviços | Buscar salões, agendar, ver e cancelar as próprias reservas | Ver dados de outros clientes ou painéis administrativos |
+| **Dono do salão** (`admin`) | Responsável por um salão | Gerenciar serviços, profissionais, horários e agenda **do próprio salão**; ver o dashboard; copiar o link público | Ver ou alterar dados de outros salões |
+| **Administrador da plataforma** (`platform_admin`) | Equipe do BeautyTime | Ver **todos** os salões, buscar e filtrar, ver o dashboard de cada salão e corrigir dados de salões, serviços e profissionais | Não é criado pelo app: a conta é definida diretamente no banco de dados |
 
-Usa uma conta global, não vinculada a um salão. Pode:
-
-- Criar uma conta e entrar no aplicativo.
-- Encontrar salões que aceitam reservas ou acessar diretamente o link público de um salão.
-- Consultar serviços, profissionais e horários disponíveis.
-- Fazer e consultar os próprios agendamentos.
-- Cancelar os próprios agendamentos.
-
-Uma cliente não pode consultar nem cancelar reservas de outra pessoa.
-
-### Dono ou responsável pelo salão (`admin`)
-
-Sua conta está vinculada a uma empresa. Pode:
-
-- Cadastrar e manter os serviços da própria empresa.
-- Cadastrar profissionais e associar a eles os serviços que realizam.
-- Configurar os períodos de atendimento de cada profissional.
-- Consultar a agenda da empresa por dia e profissional.
-- Acompanhar os indicadores do dashboard do salão.
-- Consultar e copiar o link público de agendamento.
-
-O acesso administrativo é isolado por empresa. Uma administradora não pode gerenciar os dados de outro salão.
-
-### Administrador da plataforma (`platform_admin`)
-
-É um perfil operacional da equipe BeautyTime, separado dos administradores de salão. Acessa a área restrita em `/platform` e pode:
-
-- Pesquisar salões por nome e filtrar por serviço ativo.
-- Consultar o dashboard e os dados de um salão.
-- Editar dados de salões, serviços e profissionais, conforme as permissões do backend.
-
-Esse perfil não pertence a uma empresa e não usa as telas `/admin` como administrador de salão. O acesso é concedido pela equipe responsável pela plataforma.
+Todas as permissões são verificadas no backend (Xano). Esconder um botão na tela não é a única proteção: se alguém tentar acessar um endereço que não é do seu perfil, a API recusa.
 
 ## 4. Funcionalidades
 
-### Cliente
+**Cliente**
+- Buscar salões por nome e filtrar por serviço
+- Ver serviços, preços e duração de cada salão
+- Agendar escolhendo serviço, profissional (ou "sem preferência"), dia e horário
+- Ver agendamentos futuros e passados
+- Cancelar agendamento (gratuito com 8 horas ou mais de antecedência)
 
-- Cadastro, login e sessão global.
-- Busca pública de salões em `/saloes`.
-- Agendamento pelo link específico do salão.
-- Escolha de serviço, profissional ou opção sem preferência, data e horário disponível.
-- Consulta de reservas futuras e passadas em `/meus-agendamentos`.
-- Cancelamento das próprias reservas e aviso sobre a política aplicável.
+**Dono do salão**
+- Dashboard com agendamentos de hoje e da semana, faturamento estimado, taxa de cancelamento, serviços mais agendados e próximos horários
+- Cadastrar, editar, desativar e reativar serviços
+- Cadastrar, editar, desativar e reativar profissionais e os serviços que cada um realiza
+- Cadastrar os períodos de atendimento semanais de cada profissional
+- Consultar a agenda por dia e por profissional
+- Copiar o link público do salão para enviar às clientes
 
-### Dono do salão
-
-- Cadastro da empresa e criação do link público.
-- Dashboard com indicadores e próximos horários.
-- Cadastro, edição e ativação/desativação de serviços.
-- Cadastro, edição e ativação/desativação de profissionais.
-- Associação dos serviços realizados por cada profissional.
-- Configuração de horários de atendimento.
-- Agenda filtrada por dia e profissional.
-- Cópia do link público do salão.
-
-### Administrador da plataforma
-
-- Busca de salões por nome.
-- Filtro por serviço ativo.
-- Dashboard e consulta de dados de cada salão.
-- Edição de informações do salão, serviços e profissionais.
+**Administrador da plataforma**
+- Listar todos os salões, com contagem de serviços, profissionais e agendamentos
+- Buscar salões por nome e filtrar por serviço
+- Ver o dashboard de qualquer salão
+- Editar dados do salão, dos serviços e dos profissionais (toda alteração fica registrada em log)
 
 ## 5. Manual de utilização
 
-### Jornada da cliente
+### 5.1 Jornada da cliente
 
-#### Criar conta ou entrar
+**Passo 1. Encontrar um salão.** Acesse *Encontrar salões* (`/saloes`). Digite o nome do salão e/ou um serviço (ex.: "corte") e clique em **Buscar**.
+*Resultado esperado:* aparecem apenas os salões que atendem ao filtro, com seus serviços ativos, duração e preço.
 
-1. Na página inicial, escolha **Sou cliente** e depois **Criar conta** para se cadastrar, ou **Entrar** se já tiver uma conta.
-2. No cadastro, informe nome, e-mail, telefone e senha.
-3. No login, informe e-mail e senha.
-4. Após autenticar, a cliente pode continuar um agendamento iniciado ou acessar a área de agendamentos.
+![Busca de salões filtrada pelo serviço "corte"](docs/prints/01-cliente-busca-filtrada.png)
 
-**Resultado esperado:** a cliente entra com uma conta global e pode usá-la para agendar em diferentes salões.
+**Passo 2. Escolher serviço, profissional e horário.** Clique em **Agendar** no salão desejado (ou abra o link que o salão enviou). Escolha o serviço, o profissional (ou "Sem preferência"), o dia e um horário disponível. Se ainda não estiver logada, clique em **Entrar para confirmar**.
+*Resultado esperado:* só aparecem horários realmente livres para o profissional escolhido. O resumo da reserva aparece em *Confirmação*.
 
-![print](docs/prints/cliente-login.png)
+![Escolha de profissional, dia e horário](docs/prints/02-cliente-escolha-horario.png)
 
-#### Encontrar um salão pela busca
+**Passo 3. Confirmar.** Clique em **Confirmar agendamento**.
+*Resultado esperado:* aparece a mensagem *Agendamento confirmado* com o resumo (serviço, data, salão, profissional, duração e preço) e a regra de cancelamento.
 
-1. Abra `/saloes` pelo botão **Encontrar salões**.
-2. Consulte os salões que aceitam reservas.
-3. Selecione **Agendar** ou o link do salão desejado.
+![Agendamento confirmado](docs/prints/03-cliente-agendamento-confirmado.png)
 
-**Resultado esperado:** a página pública do salão abre no endereço `/agendar/{identificador}`.
+**Passo 4. Acompanhar as reservas.** Acesse *Meus agendamentos* (`/meus-agendamentos`).
+*Resultado esperado:* a lista mostra os agendamentos *Próximos* e *Passados*, cada um com o selo de status (Agendado ou Cancelado) e os botões **Agendar de novo** e **Cancelar agendamento**.
 
-![print](docs/prints/busca-saloes.png)
+![Meus agendamentos com status Agendado e Cancelado](docs/prints/04-cliente-meus-agendamentos.png)
 
-#### Agendar pelo link do salão
+### 5.2 Jornada do dono do salão
 
-1. Abra o link público recebido do salão ou encontrado em `/saloes`.
-2. Escolha um serviço disponível.
-3. Escolha um profissional ou **Sem preferência**, quando a opção estiver disponível.
-4. Escolha uma data e um horário livre.
-5. Confira o resumo do agendamento.
-6. Entre ou crie uma conta de cliente, se solicitado, e confirme.
+**Passo 1. Acompanhar o negócio.** Entre em `/admin/login`. O *Painel administrativo* abre com os números do salão.
+*Resultado esperado:* cards com agendamentos de hoje, agendamentos na semana, faturamento estimado da semana (sem contar cancelados) e taxa de cancelamento, além dos serviços mais agendados, dos próximos horários de hoje e do link público com o botão **Copiar link**.
 
-**Resultado esperado:** a aplicação confirma o agendamento e apresenta os dados escolhidos. A disponibilidade e a prevenção de conflitos são verificadas pelo backend.
+![Painel do dono do salão](docs/prints/05-dono-dashboard.png)
 
-![print](docs/prints/agendamento-etapas.png)
+**Passo 2. Cadastrar serviços.** No menu, clique em **Serviços**. Preencha nome, duração e preço e clique em **Cadastrar serviço**. Use **Editar**, **Desativar** ou **Reativar** em cada item do catálogo.
+*Resultado esperado:* o serviço aparece no *Catálogo* com o selo *Ativo*. Serviços desativados deixam de aparecer para as clientes, mas os agendamentos antigos são preservados.
 
-![print](docs/prints/agendamento-confirmado.png)
+![Cadastro de serviço e catálogo](docs/prints/06-dono-catalogo-servicos.png)
 
-#### Consultar e cancelar reservas
+**Passo 3. Cadastrar profissionais e horários.** Em **Profissionais**, cadastre cada pessoa da equipe e marque os serviços que ela realiza. Em **Horários**, escolha o profissional, marque os dias da semana, informe início e término e clique em **Cadastrar período**.
+*Resultado esperado:* o profissional passa a aparecer no agendamento das clientes, apenas nos dias e horários cadastrados.
 
-1. Abra **Meus agendamentos** em `/meus-agendamentos`.
-2. Consulte as listas de próximos e passados.
-3. Para cancelar uma reserva futura, use a ação de cancelamento do respectivo agendamento e confirme no diálogo.
+**Passo 4. Consultar a agenda.** Em **Agenda**, escolha o dia e, se quiser, um profissional.
+*Resultado esperado:* a lista mostra cada agendamento com serviço, horário de início e término, cliente, profissional e status.
 
-**Resultado esperado:** a cliente vê apenas as próprias reservas. A tela informa o resultado do cancelamento e, quando aplicável, o aviso de cancelamento tardio. O aviso de taxa é informativo; o app não processa pagamentos.
+![Agenda do salão](docs/prints/07-dono-agenda.png)
 
-![print](docs/prints/meus-agendamentos.png)
+**Passo 5. Divulgar o salão.** No *Painel*, clique em **Copiar link** e envie para as clientes.
+*Resultado esperado:* quem abre o link cai direto na página de agendamento do salão.
 
-### Jornada do dono do salão
+### 5.3 Jornada do administrador da plataforma
 
-#### Criar conta da empresa
+**Passo 1. Ver todos os salões.** Entre em `/platform/login`. Use **Buscar por nome** e **Filtrar por serviço ativo**.
+*Resultado esperado:* a lista mostra todos os salões, com a quantidade de serviços, profissionais e agendamentos de cada um.
 
-1. Na página inicial, escolha **Tenho um salão** e **Criar conta**.
-2. Informe seus dados, e-mail e senha, nome da empresa e os campos opcionais apresentados.
-3. Envie o cadastro.
+![Lista de salões da plataforma](docs/prints/08-plataforma-saloes.png)
 
-**Resultado esperado:** a conta administradora é vinculada à empresa e o responsável pode entrar na área administrativa.
+**Passo 2. Acompanhar um salão.** Clique no card de um salão.
+*Resultado esperado:* abre o dashboard daquele salão (os mesmos indicadores que o dono vê) e as abas *Dados do salão*, *Serviços* e *Profissionais*.
 
-![print](docs/prints/cadastro-salao.png)
+![Dashboard de um salão visto pelo administrador](docs/prints/09-plataforma-dashboard-salao.png)
 
-#### Cadastrar serviços
+**Passo 3. Corrigir dados.** Em qualquer aba, clique em **Editar**, altere o que precisa (ex.: preço de um serviço) e clique em **Salvar**.
+*Resultado esperado:* a alteração é salva e registrada no log de eventos da plataforma.
 
-1. Entre como administradora do salão.
-2. No painel, abra **Serviços**.
-3. Informe o nome, a duração e o preço do serviço.
-4. Envie o formulário. Para alterar a situação ou os dados, use as ações disponíveis em cada item do catálogo.
+![Edição de serviço pelo administrador](docs/prints/10-plataforma-edicao-servico.png)
 
-**Resultado esperado:** o serviço aparece no catálogo da empresa e, quando ativo e associado a um profissional ativo, pode ser oferecido para agendamento.
+## 6. Situações alternativas e tratamento de erros
 
-![print](docs/prints/admin-servicos.png)
+**Login com senha errada.** Se o e-mail ou a senha estiverem incorretos, ou se a conta não for do tipo daquela tela, o acesso é recusado com uma mensagem clara.
 
-#### Cadastrar profissionais
+![Mensagem de e-mail ou senha inválidos](docs/prints/11-erro-senha-errada.png)
 
-1. No menu administrativo, abra **Profissionais**.
-2. Informe o nome do profissional.
-3. Selecione os serviços que ele realiza e envie o formulário.
-4. Para editar, desativar ou reativar, use as ações do item correspondente.
+**Cancelamento com confirmação.** Ao clicar em **Cancelar agendamento**, o app pede confirmação e informa se o cancelamento é gratuito (8 horas ou mais de antecedência) ou tardio (menos de 8 horas, com taxa apenas informativa de R$ 5,00; nenhum pagamento é processado).
 
-**Resultado esperado:** o profissional aparece na equipe da empresa; os serviços associados determinam quais opções podem ser oferecidas com esse profissional.
+![Janela de confirmação do cancelamento](docs/prints/12-cancelamento-confirmar.png)
 
-![print](docs/prints/admin-profissionais.png)
+*Resultado esperado:* aparece a mensagem *Agendamento cancelado sem taxa* e o selo muda para *Cancelado*. O horário volta a ficar livre.
 
-#### Configurar horários de atendimento
+![Agendamento cancelado](docs/prints/13-cancelamento-concluido.png)
 
-1. Abra **Horários** no painel administrativo.
-2. Selecione o profissional.
-3. Escolha um ou mais dias da semana e informe os horários de início e término.
-4. Cadastre o período. Use `HH:MM`; para término à meia-noite, informe `24:00`.
-5. Edite ou remova períodos existentes pelas ações correspondentes.
+**Serviço com nome repetido.** O salão não pode ter dois serviços com o mesmo nome. O formulário avisa e não cadastra.
 
-**Resultado esperado:** os períodos cadastrados passam a definir quando o profissional pode receber agendamentos.
+![Erro de nome de serviço já em uso](docs/prints/14-erro-validacao-servico.png)
 
-![print](docs/prints/admin-horarios.png)
+**Agenda sem reservas.** Quando não há agendamentos para o dia ou o profissional escolhido, a tela explica e sugere trocar o filtro.
 
-#### Consultar a agenda e o dashboard
+![Agenda vazia](docs/prints/15-agenda-sem-agendamentos.png)
 
-1. Abra **Agenda** para consultar as reservas da empresa.
-2. Filtre pelo dia e, opcionalmente, pelo profissional.
-3. Volte ao **Painel** para ver os indicadores, próximos horários e o resumo do salão.
+**Cliente sem agendamentos.** Uma conta nova vê uma orientação para usar **Novo agendamento** e encontrar um salão.
 
-**Resultado esperado:** a agenda exibe os agendamentos que correspondem aos filtros; o dashboard apresenta os indicadores e próximos horários da própria empresa.
+![Cliente sem agendamentos](docs/prints/16-cliente-sem-agendamentos.png)
 
-![print](docs/prints/admin-agenda.png)
+**Profissional sem horários.** Se um profissional ainda não tem períodos de atendimento, a tela avisa. Enquanto isso, ele não aparece com horários disponíveis para as clientes.
 
-![print](docs/prints/admin-dashboard.png)
+![Profissional sem horários cadastrados](docs/prints/17-profissional-sem-horarios.png)
 
-#### Copiar o link público
+**Outras proteções:**
+- Abrir `/platform` sem estar logado como administrador da plataforma leva de volta ao login.
+- O dono de um salão nunca vê os dados de outro salão: o salão é identificado pelo login, e não por um parâmetro enviado pela tela.
+- Só aparecem na busca os salões que realmente aceitam agendamento (com serviço ativo e profissional ativo).
 
-1. No painel administrativo, localize **Link público do salão**.
-2. Use **Copiar link**.
-3. Compartilhe a URL com as clientes. Ela também pode ser copiada manualmente a partir do link exibido.
+## 7. Exemplos de utilização (dados de demonstração)
 
-**Resultado esperado:** a URL pública do salão fica disponível para divulgação e abre o fluxo de agendamento.
+O banco tem dados de demonstração para testar todas as jornadas. **Senha de todas as contas: `Demo@2026`**
 
-![print](docs/prints/link-publico.png)
-
-### Jornada do administrador da plataforma
-
-#### Pesquisar e filtrar salões
-
-1. Abra `/platform/login` e autentique-se com uma conta `platform_admin autorizada`.
-2. Na página `/platform`, informe o nome do salão no campo de busca e/ou um serviço no filtro.
-3. Use **Buscar**.
-4. Abra o card do salão desejado.
-
-**Resultado esperado:** a lista exibe os salões correspondentes aos critérios; cada card leva à página de detalhes do salão.
-
-![print](docs/prints/platform-busca.png)
-
-#### Consultar dashboard e editar cadastros
-
-1. Na página do salão, consulte o dashboard e as informações disponíveis.
-2. Selecione a aba **Dados do salão**, **Serviços** ou **Profissionais**.
-3. Edite os campos necessários e envie as alterações.
-
-**Resultado esperado:** a página informa o resultado da operação e exibe os dados atualizados conforme as permissões do backend. As alterações são feitas somente pela área administrativa da plataforma.
-
-![print](docs/prints/platform-dashboard.png)
-
-![print](docs/prints/platform-edicao.png)
-
-## 6. Exemplos de utilização
-
-### Contas de demonstração de salões
-
-As contas de demonstração dos salões usam a senha pública de demonstração `Demo@2026`:
-
-| Salão | E-mail |
-|---|---|
-| Salão Aurora - Pinheiros | `dono.salao-aurora@demo.beautytime` |
-| Barbearia Paulista | `dono.barbearia-paulista@demo.beautytime` |
-| Estúdio Unhas Bela | `dono.estudio-unhas-bela@demo.beautytime` |
-
-### Contas de demonstração de clientes
-
-As contas de clientes de demonstração são `cliente1@demo.beautytime`, `cliente2@demo.beautytime`, `cliente3@demo.beautytime` e `cliente4@demo.beautytime`. Elas usam a mesma senha pública de demonstração `Demo@2026`.
-
-### Acesso do administrador da plataforma
-
-O administrador da plataforma entra em `/platform/login` com credenciais fornecidas pela equipe responsável. Não há credencial de demonstração de `platform_admin` publicada neste README.
-
-### Endereços úteis
-
-- Página inicial: `/`
-- Busca pública de salões: `/saloes`
-- Área da cliente: `/meus-agendamentos`
-- Painel do salão: `/admin`
-- Login da plataforma: `/platform/login`
-
-O link público de cada empresa segue o formato `/agendar/{identificador}`. Os exemplos de demonstração incluem `salao-aurora`, `barbearia-paulista` e `estudio-unhas-bela`.
+| Perfil | E-mail | Link do salão |
+|---|---|---|
+| Dono: Salão Aurora - Pinheiros | dono.salao-aurora@demo.beautytime | http://localhost:3000/agendar/salao-aurora |
+| Dono: Barbearia Paulista | dono.barbearia-paulista@demo.beautytime | http://localhost:3000/agendar/barbearia-paulista |
+| Dono: Estúdio Unhas Bela | dono.estudio-unhas-bela@demo.beautytime | http://localhost:3000/agendar/estudio-unhas-bela |
+| Clientes | cliente1@demo.beautytime até cliente4@demo.beautytime | — |
+
+**Cenário sugerido:**
+1. Entre como `cliente1@demo.beautytime`, busque "corte" em `/saloes` e agende um horário no Salão Aurora.
+2. Entre como `dono.salao-aurora@demo.beautytime` e veja o agendamento novo em **Agenda** e nos números do **Painel**.
+3. Volte como cliente e cancele o agendamento: o selo muda para *Cancelado* e a taxa de cancelamento do salão é atualizada.
+
+Os dados de demonstração são gerados pela função Xano `seed_demo_data`, que pode ser rodada novamente sem duplicar registros.
+
+## 8. Limitações conhecidas e próximos passos
+
+**Limitações da versão entregue**
+- Não há deploy público: o frontend roda localmente.
+- A conta de administrador da plataforma é criada diretamente no banco (não existe tela de cadastro para esse perfil, por segurança).
+- Os agendamentos de demonstração foram gerados para uma semana específica; em outras semanas, os números do dashboard podem aparecer zerados até que novos agendamentos sejam feitos.
+- O faturamento do dashboard é uma **estimativa** baseada nos preços dos agendamentos; não há pagamento online.
+- A taxa de cancelamento tardio é apenas informativa.
+
+**Próximos passos (V2)**
+- Publicar o app na internet (deploy)
+- Logo e cor personalizadas por salão na página de agendamento
+- Central de chamados de suporte para clientes e salões
+- Notificações e lembretes de agendamento (e-mail/WhatsApp)
+- Pagamento online e sinal de reserva
+
+## 9. Tecnologias
+
+- **Xano**: banco de dados, API e regras de negócio (XanoScript)
+- **Reflex** (Python): interface web
+- **OpenSpec**: especificação e controle das mudanças (changes)
+- **GitHub Copilot** e **Git/GitHub**: desenvolvimento e versionamento
